@@ -14,10 +14,10 @@
 3. [Data Protection](#3-data-protection)
 4. [Multi-tenancy Security](#4-multi-tenancy-security)
 5. [API Security](#5-api-security)
-6. [OWASP Top 10 Compliance](#6-owasp-top-10-compliance)
+6. [OWASP Top 10 (2021) Compliance](#6-owasp-top-10-2021-compliance)
 7. [Audit & Monitoring](#7-audit--monitoring)
 8. [Financial Compliance](#8-financial-compliance)
-9. [Security Checklist](#9-security-checklist)
+9. [Security Checklist — قائمة التحقق الأمني](#9-security-checklist--قائمة-التحقق-الأمني)
 
 ---
 

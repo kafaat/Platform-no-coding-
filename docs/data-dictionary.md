@@ -35,7 +35,7 @@
 5. [Numbering — الترقيم](#5-numbering--الترقيم)
    - 5.1 [numbering_scheme — مخطط الترقيم](#51-numbering_scheme--مخطط-الترقيم)
    - 5.2 [numbering_sequence — تسلسل الترقيم](#52-numbering_sequence--تسلسل-الترقيم)
-   - 5.3 [product_identifier — معرّفات المنتج](#53-product_identifier--معرّفات-المنتج)
+   - 5.3 [product_identifier — معرفات المنتج](#53-product_identifier--معرفات-المنتج)
 6. [Pricing — التسعير](#6-pricing--التسعير)
    - 6.1 [price_list — قائمة الأسعار](#61-price_list--قائمة-الأسعار)
    - 6.2 [price_list_product — أسعار المنتجات](#62-price_list_product--أسعار-المنتجات)
@@ -286,7 +286,7 @@
 
 ---
 
-### 3.6 attribute_value — قيم السمات (EAV)
+### 3.6 attribute_value — قيم السمات
 
 **Purpose / الغرض**: EAV value storage with typed columns. Each row stores one attribute value for one product, using the column matching the attribute's datatype.
 
@@ -355,7 +355,7 @@
 
 ---
 
-### 4.4 product_composition — تركيب المنتج (BOM)
+### 4.4 product_composition — تركيب المنتج
 
 **Purpose / الغرض**: Bill of Materials / Bundle / Kit composition. Defines parent-child product relationships with quantity and pricing policy.
 
@@ -412,7 +412,7 @@
 
 ---
 
-### 5.3 product_identifier — معرّفات المنتج
+### 5.3 product_identifier — معرفات المنتج
 
 **Purpose / الغرض**: Multi-type identifiers generated or assigned to a product (product number, inventory code, location code, external reference, contract number).
 
@@ -468,7 +468,7 @@
 
 ---
 
-### 6.3 price_rule — قواعد التسعير (CEL)
+### 6.3 price_rule — قواعد التسعير
 
 **Purpose / الغرض**: Dynamic pricing rules using the CEL (Common Expression Language) engine. Condition determines applicability; formula computes the price adjustment.
 
