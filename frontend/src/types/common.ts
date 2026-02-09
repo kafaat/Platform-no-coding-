@@ -129,6 +129,24 @@ export interface ProductChannelConfig {
 export type ChargeKind = 'FEE' | 'FINE' | 'SUBSCRIPTION' | 'COMMISSION';
 
 /**
+ * Charge timing event — when the charge is triggered (FR-100/FR-101).
+ * حدث توقيت الرسم — متى يتم تفعيل الرسم
+ */
+export type ChargeTimingEvent =
+  | 'OnCreate'
+  | 'OnActivate'
+  | 'OnDue'
+  | 'OnLate'
+  | 'OnCancel'
+  | 'OnEarlySettle';
+
+/** Charge calculation basis / اساس حساب الرسم */
+export type ChargeBasis = 'FIXED' | 'PERCENT' | 'TIERED';
+
+/** Charge frequency / تكرار الرسم */
+export type ChargeFrequency = 'ONCE' | 'MONTH' | 'YEAR';
+
+/**
  * Charge/fee/penalty/subscription/commission definition.
  * تعريف رسم/غرامة/اشتراك/عمولة
  *
@@ -146,13 +164,13 @@ export interface Charge {
   /** Charge kind: FEE, FINE, SUBSCRIPTION, COMMISSION / نوع الرسم */
   kind: ChargeKind;
   /** Calculation basis: FIXED, PERCENT, TIERED / اساس الحساب */
-  basis: string;
+  basis: ChargeBasis;
   /** Charge value / قيمة الرسم */
   value: number;
   /** Frequency: ONCE, MONTH, YEAR / التكرار */
-  per?: string;
-  /** Trigger event (e.g., OnLate, OnDisburse) / حدث التفعيل */
-  when_event?: string;
+  per?: ChargeFrequency;
+  /** Trigger event (FR-100/FR-101) / حدث التفعيل */
+  when_event?: ChargeTimingEvent;
   /** Additional parameters as JSONB / معلمات اضافية */
   params?: Record<string, unknown>;
   /** Creation timestamp (ISO 8601) / وقت الانشاء */

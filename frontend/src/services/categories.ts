@@ -13,6 +13,8 @@ import type {
   ProductType,
   CreateCategoryRequest,
   UpdateCategoryRequest,
+  CategoryAttributeSet,
+  AttributeSet,
 } from '@/types';
 
 /**
@@ -71,5 +73,34 @@ export const categoriesService = {
    */
   toggleActive(id: number): Promise<ProductCategory> {
     return apiClient.patch<ProductCategory>(`categories/${id}/toggle-active`);
+  },
+
+  // --------------------------------------------------------
+  // Attribute Set Links (FR-002) / روابط مجموعات السمات
+  // --------------------------------------------------------
+
+  /**
+   * Get attribute sets linked to a category.
+   * FR-002: Categories inherit attribute sets to their products.
+   * جلب مجموعات السمات المرتبطة بفئة
+   */
+  getAttributeSets(categoryId: number): Promise<AttributeSet[]> {
+    return apiClient.get<AttributeSet[]>(`categories/${categoryId}/attribute-sets`);
+  },
+
+  /**
+   * Link an attribute set to a category.
+   * ربط مجموعة سمات بفئة
+   */
+  linkAttributeSet(categoryId: number, setId: number): Promise<CategoryAttributeSet> {
+    return apiClient.post<CategoryAttributeSet>(`categories/${categoryId}/attribute-sets`, { set_id: setId });
+  },
+
+  /**
+   * Unlink an attribute set from a category.
+   * الغاء ربط مجموعة سمات من فئة
+   */
+  unlinkAttributeSet(categoryId: number, setId: number): Promise<void> {
+    return apiClient.delete<void>(`categories/${categoryId}/attribute-sets/${setId}`);
   },
 };

@@ -18,6 +18,9 @@ export type {
   Channel,
   ProductChannelConfig,
   ChargeKind,
+  ChargeTimingEvent,
+  ChargeBasis,
+  ChargeFrequency,
   Charge,
   ProductChargeLink,
   AccountingTemplateEntry,
@@ -58,6 +61,8 @@ export type {
   CreateProductVersionRequest,
   CreateCategoryRequest,
   UpdateCategoryRequest,
+  VersionFieldChange,
+  VersionDiff,
 } from './product';
 
 // Contract types: contracts, installments, payments, penalties, subledger, settlement

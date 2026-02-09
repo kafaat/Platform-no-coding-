@@ -131,6 +131,20 @@ export interface AttributeValue {
   value_bool?: boolean;
   /** JSON value (for JSON datatype) / قيمة JSON */
   value_json?: Record<string, unknown>;
+
+  // Context fields for multi-dimensional attribute values (FR-022)
+  // حقول السياق لقيم السمات متعددة الابعاد
+
+  /** Product version ID (null = current) / معرف اصدار المنتج */
+  version_id?: number;
+  /** Channel code for channel-specific values / رمز القناة */
+  channel_code?: string;
+  /** Currency code for currency-specific values / رمز العملة */
+  currency?: string;
+  /** Effective from date (ISO 8601) / تاريخ البدء */
+  effective_from?: string;
+  /** Effective to date (ISO 8601) / تاريخ الانتهاء */
+  effective_to?: string;
 }
 
 // ============================================================
@@ -253,6 +267,12 @@ export interface AttributeValueInput {
   value_bool?: boolean;
   /** JSON value / قيمة JSON */
   value_json?: Record<string, unknown>;
+  /** Product version ID context / سياق معرف الاصدار */
+  version_id?: number;
+  /** Channel code context / سياق رمز القناة */
+  channel_code?: string;
+  /** Currency code context / سياق رمز العملة */
+  currency?: string;
 }
 
 /** Request to set attribute values for a product / طلب تعيين قيم سمات المنتج */

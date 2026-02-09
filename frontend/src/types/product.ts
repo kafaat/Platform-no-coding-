@@ -373,3 +373,30 @@ export interface UpdateCategoryRequest {
   is_active?: boolean;
   default_policies?: Record<string, unknown>;
 }
+
+// ============================================================
+// Version Comparison (FR-141)
+// مقارنة الاصدارات
+// ============================================================
+
+/** Single field-level change between two versions / تغيير حقل واحد بين اصدارين */
+export interface VersionFieldChange {
+  /** Field path / مسار الحقل */
+  field: string;
+  /** Old value / القيمة القديمة */
+  old_value: unknown;
+  /** New value / القيمة الجديدة */
+  new_value: unknown;
+}
+
+/** Result of comparing two product versions / نتيجة مقارنة اصدارين */
+export interface VersionDiff {
+  /** Product ID / معرف المنتج */
+  product_id: number;
+  /** Base version number / رقم الاصدار الاساسي */
+  from_version: number;
+  /** Target version number / رقم الاصدار المستهدف */
+  to_version: number;
+  /** List of field-level changes / قائمة التغييرات */
+  changes: VersionFieldChange[];
+}

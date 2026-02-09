@@ -22,3 +22,4 @@ export { eligibilityService } from './eligibility';
 export { compositionService } from './composition';
 export { identifiersService } from './identifiers';
 export { subledgerService } from './subledger';
+export { schedulesService } from './schedules';

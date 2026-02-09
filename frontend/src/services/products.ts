@@ -21,6 +21,7 @@ import type {
   CreateProductVersionRequest,
   AttributeValue,
   SetProductAttributesRequest,
+  VersionDiff,
 } from '@/types';
 
 /**
@@ -102,6 +103,24 @@ export const productsService = {
    */
   createVersion(productId: number, data: CreateProductVersionRequest): Promise<ProductVersion> {
     return apiClient.post<ProductVersion>(`products/${productId}/versions`, data);
+  },
+
+  /**
+   * Get a specific version by version number.
+   * جلب اصدار محدد حسب رقم الاصدار
+   */
+  getVersion(productId: number, versionNo: number): Promise<ProductVersion> {
+    return apiClient.get<ProductVersion>(`products/${productId}/versions/${versionNo}`);
+  },
+
+  /**
+   * Compare two versions of a product (FR-141).
+   * مقارنة اصدارين من المنتج
+   */
+  compareVersions(productId: number, fromVersion: number, toVersion: number): Promise<VersionDiff> {
+    return apiClient.get<VersionDiff>(`products/${productId}/versions/diff`, {
+      params: { from: fromVersion, to: toVersion },
+    });
   },
 
   // --------------------------------------------------------
