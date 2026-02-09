@@ -890,3 +890,844 @@ CREATE POLICY tenant_isolation ON attribute_snapshot
 --
 -- CREATE TABLE audit_log_2026 PARTITION OF audit_log
 --   FOR VALUES FROM ('2026-01-01') TO ('2027-01-01');
+
+-- ============================================================
+-- 23. MATERIALIZED VIEWS (CQRS Read Models)
+-- نماذج القراءة المادية لتحسين أداء الاستعلامات
+-- Materialized views for read-optimized query performance
+-- ============================================================
+
+-- mv_product_catalog: عرض كامل للمنتج يجمع المنتج + الفئة + الإصدار الحالي + السعر الأساسي + عدد القنوات النشطة
+-- Full product catalog view joining product, category, current version, base price, and active channel count
+CREATE MATERIALIZED VIEW mv_product_catalog AS
+SELECT
+    p.tenant_id,
+    p.id,
+    p.type,
+    p.name_ar,
+    p.name_en,
+    pc.name_ar   AS category_name_ar,
+    pc.name_en   AS category_name_en,
+    p.status,
+    pv.version_no,
+    pv.effective_from,
+    pr.base_price,
+    pr.currency,
+    COALESCE(ch.channel_count, 0) AS channel_count
+FROM product p
+JOIN product_category pc ON pc.id = p.category_id
+LEFT JOIN LATERAL (
+    SELECT pv2.version_no, pv2.effective_from
+    FROM product_version pv2
+    WHERE pv2.product_id = p.id
+      AND pv2.effective_from <= CURRENT_DATE
+      AND (pv2.effective_to IS NULL OR pv2.effective_to > CURRENT_DATE)
+    ORDER BY pv2.effective_from DESC
+    LIMIT 1
+) pv ON true
+LEFT JOIN LATERAL (
+    SELECT plp2.base_price, pl2.currency
+    FROM price_list_product plp2
+    JOIN price_list pl2 ON pl2.id = plp2.price_list_id
+    WHERE plp2.product_id = p.id
+      AND pl2.valid_from <= CURRENT_DATE
+      AND (pl2.valid_to IS NULL OR pl2.valid_to > CURRENT_DATE)
+    ORDER BY pl2.valid_from DESC
+    LIMIT 1
+) pr ON true
+LEFT JOIN LATERAL (
+    SELECT COUNT(*)::INT AS channel_count
+    FROM product_channel pch
+    WHERE pch.product_id = p.id
+      AND pch.enabled = true
+) ch ON true
+WITH NO DATA;
+
+CREATE UNIQUE INDEX idx_mv_product_catalog_id ON mv_product_catalog(id);
+
+COMMENT ON MATERIALIZED VIEW mv_product_catalog IS
+    'كتالوج المنتجات — عرض مادي يجمع بيانات المنتج والفئة والإصدار والسعر والقنوات / Product catalog read model for CQRS';
+
+-- -----------------------------------------------------------
+
+-- mv_contract_portfolio: لوحة معلومات محفظة العقود
+-- Contract portfolio dashboard with aggregated installment data
+CREATE MATERIALIZED VIEW mv_contract_portfolio AS
+SELECT
+    c.id,
+    c.tenant_id,
+    c.contract_number,
+    cu.name_ar  AS customer_name_ar,
+    cu.name_en  AS customer_name_en,
+    p.name_ar   AS product_name_ar,
+    p.name_en   AS product_name_en,
+    c.principal,
+    c.currency,
+    c.interest_type,
+    c.status,
+    c.opened_at,
+    COALESCE(inst.total_due, 0)          AS total_due,
+    COALESCE(inst.total_paid, 0)         AS total_paid,
+    COALESCE(inst.total_due, 0)
+        - COALESCE(inst.total_paid, 0)   AS outstanding_balance,
+    inst.next_due_date,
+    COALESCE(inst.days_overdue, 0)       AS days_overdue
+FROM contract c
+JOIN customer cu ON cu.id = c.customer_id
+JOIN product p   ON p.id  = c.product_id
+LEFT JOIN LATERAL (
+    SELECT
+        SUM(i.principal_due + i.interest_due + i.fee_due)     AS total_due,
+        SUM(i.paid_principal + i.paid_interest + i.paid_fee)  AS total_paid,
+        MIN(CASE WHEN i.status IN ('DUE','LATE') THEN i.due_on END) AS next_due_date,
+        MAX(CASE
+            WHEN i.status = 'LATE'
+            THEN GREATEST(CURRENT_DATE - i.due_on, 0)
+            ELSE 0
+        END) AS days_overdue
+    FROM installment i
+    WHERE i.contract_id = c.id
+) inst ON true
+WITH NO DATA;
+
+CREATE UNIQUE INDEX idx_mv_contract_portfolio_id ON mv_contract_portfolio(id);
+
+COMMENT ON MATERIALIZED VIEW mv_contract_portfolio IS
+    'محفظة العقود — عرض مادي مجمّع للأقساط والمدفوعات والتأخر / Contract portfolio dashboard read model';
+
+-- -----------------------------------------------------------
+
+-- mv_aging_report: تقرير الشيخوخة (التصنيف العمري) لكل عقد
+-- Aging analysis per contract with bucket classification
+CREATE MATERIALIZED VIEW mv_aging_report AS
+SELECT
+    c.id          AS contract_id,
+    c.tenant_id,
+    c.contract_number,
+    c.customer_id,
+    cu.name_ar    AS customer_name_ar,
+    cu.name_en    AS customer_name_en,
+    c.principal,
+    c.currency,
+    CASE
+        WHEN COALESCE(aging.max_days_overdue, 0) = 0   THEN 'CURRENT'
+        WHEN aging.max_days_overdue BETWEEN 1   AND 30  THEN '30'
+        WHEN aging.max_days_overdue BETWEEN 31  AND 60  THEN '60'
+        WHEN aging.max_days_overdue BETWEEN 61  AND 90  THEN '90'
+        WHEN aging.max_days_overdue BETWEEN 91  AND 180 THEN '180'
+        ELSE '180+'
+    END AS current_bucket,
+    COALESCE(aging.overdue_amount, 0)    AS overdue_amount,
+    COALESCE(pen.total_penalties, 0)     AS total_penalties
+FROM contract c
+JOIN customer cu ON cu.id = c.customer_id
+LEFT JOIN LATERAL (
+    SELECT
+        MAX(GREATEST(CURRENT_DATE - i.due_on, 0)) AS max_days_overdue,
+        SUM(
+            (i.principal_due - i.paid_principal)
+          + (i.interest_due  - i.paid_interest)
+          + (i.fee_due       - i.paid_fee)
+        ) AS overdue_amount
+    FROM installment i
+    WHERE i.contract_id = c.id
+      AND i.status IN ('LATE','DUE')
+      AND i.due_on < CURRENT_DATE
+) aging ON true
+LEFT JOIN LATERAL (
+    SELECT COALESCE(SUM(pe.amount), 0) AS total_penalties
+    FROM penalty_event pe
+    WHERE pe.contract_id = c.id
+) pen ON true
+WHERE c.status IN ('ACTIVE','IN_ARREARS','RESTRUCTURED')
+WITH NO DATA;
+
+CREATE UNIQUE INDEX idx_mv_aging_report_contract ON mv_aging_report(contract_id);
+
+COMMENT ON MATERIALIZED VIEW mv_aging_report IS
+    'تقرير الشيخوخة — التصنيف العمري للمتأخرات حسب العقد / Aging bucket analysis per contract';
+
+-- -----------------------------------------------------------
+
+-- mv_revenue_summary: ملخص الإيرادات الشهرية حسب نوع المنتج
+-- Monthly revenue summary by product type
+CREATE MATERIALIZED VIEW mv_revenue_summary AS
+SELECT
+    TO_CHAR(c.opened_at, 'YYYY-MM')  AS month,
+    p.type                            AS product_type,
+    COUNT(DISTINCT c.id)              AS contract_count,
+    SUM(c.principal)                  AS total_disbursed,
+    COALESCE(SUM(pe_int.interest_collected), 0) AS total_interest_collected,
+    COALESCE(SUM(pe_fee.fees_collected), 0)     AS total_fees_collected,
+    COALESCE(SUM(pen.penalties), 0)             AS total_penalties
+FROM contract c
+JOIN product p ON p.id = c.product_id
+LEFT JOIN LATERAL (
+    SELECT SUM(pev.amount_interest) AS interest_collected
+    FROM payment_event pev
+    WHERE pev.contract_id = c.id
+) pe_int ON true
+LEFT JOIN LATERAL (
+    SELECT SUM(pev.amount_fee) AS fees_collected
+    FROM payment_event pev
+    WHERE pev.contract_id = c.id
+) pe_fee ON true
+LEFT JOIN LATERAL (
+    SELECT SUM(pne.amount) AS penalties
+    FROM penalty_event pne
+    WHERE pne.contract_id = c.id
+) pen ON true
+WHERE c.opened_at IS NOT NULL
+GROUP BY TO_CHAR(c.opened_at, 'YYYY-MM'), p.type
+WITH NO DATA;
+
+CREATE INDEX idx_mv_revenue_summary_month ON mv_revenue_summary(month);
+
+COMMENT ON MATERIALIZED VIEW mv_revenue_summary IS
+    'ملخص الإيرادات الشهرية حسب نوع المنتج / Monthly revenue summary by product type';
+
+-- -----------------------------------------------------------
+
+-- fn_refresh_materialized_views: تحديث جميع النماذج المادية بشكل متزامن
+-- Refresh all materialized views concurrently for zero-downtime reads
+CREATE OR REPLACE FUNCTION fn_refresh_materialized_views()
+RETURNS VOID AS $$
+BEGIN
+    -- تحديث متزامن — يتطلب وجود فهرس فريد على كل عرض مادي
+    -- Concurrent refresh requires a unique index on each materialized view
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_product_catalog;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_contract_portfolio;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_aging_report;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_revenue_summary;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION fn_refresh_materialized_views IS
+    'تحديث جميع النماذج المادية بشكل متزامن — يُستدعى دورياً / Refresh all CQRS materialized views concurrently';
+
+-- ============================================================
+-- 24. STORED PROCEDURES (Core Business Logic)
+-- الإجراءات المخزّنة — المنطق التجاري الأساسي
+-- Core stored procedures for financial contract operations
+-- ============================================================
+
+-- -----------------------------------------------------------
+-- fn_generate_installments: توليد جدول الأقساط لعقد مالي
+-- Generate installment schedule for a financial contract
+-- Supports FLAT and REDUCING (annuity) interest calculation
+-- -----------------------------------------------------------
+CREATE OR REPLACE FUNCTION fn_generate_installments(p_contract_id BIGINT)
+RETURNS INTEGER AS $$
+DECLARE
+    v_contract       RECORD;
+    v_annual_rate    NUMERIC(18,8);
+    v_term_months    INTEGER;
+    v_monthly_rate   NUMERIC(18,8);
+    v_emi            NUMERIC(18,2);
+    v_total_interest NUMERIC(18,2);
+    v_monthly_principal NUMERIC(18,2);
+    v_monthly_interest  NUMERIC(18,2);
+    v_remaining_principal NUMERIC(18,2);
+    v_due_date       DATE;
+    v_seq            INTEGER;
+    v_principal_sum  NUMERIC(18,2) := 0;
+    v_interest_sum   NUMERIC(18,2) := 0;
+BEGIN
+    -- Fetch contract details
+    SELECT c.id, c.principal, c.interest_type, c.opened_at, c.status, c.meta
+    INTO v_contract
+    FROM contract c
+    WHERE c.id = p_contract_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Contract id=% not found', p_contract_id;
+    END IF;
+
+    -- العقد يجب أن يكون بحالة ACTIVE أو DRAFT لتوليد الأقساط
+    -- Contract must be in ACTIVE or DRAFT status to generate installments
+    IF v_contract.status NOT IN ('DRAFT', 'ACTIVE') THEN
+        RAISE EXCEPTION 'Cannot generate installments for contract id=% with status=%', p_contract_id, v_contract.status;
+    END IF;
+
+    -- التحقق من عدم وجود أقساط سابقة
+    -- Ensure no installments already exist
+    IF EXISTS (SELECT 1 FROM installment WHERE contract_id = p_contract_id) THEN
+        RAISE EXCEPTION 'Installments already exist for contract id=%', p_contract_id;
+    END IF;
+
+    -- استخراج معدل الفائدة وعدد الأشهر من meta
+    -- Extract annual_rate and term_months from contract meta JSONB
+    v_annual_rate := (v_contract.meta ->> 'annual_rate')::NUMERIC(18,8);
+    v_term_months := (v_contract.meta ->> 'term_months')::INTEGER;
+
+    IF v_annual_rate IS NULL OR v_annual_rate < 0 THEN
+        RAISE EXCEPTION 'Invalid or missing annual_rate in contract meta for contract id=%', p_contract_id;
+    END IF;
+
+    IF v_term_months IS NULL OR v_term_months <= 0 THEN
+        RAISE EXCEPTION 'Invalid or missing term_months in contract meta for contract id=%', p_contract_id;
+    END IF;
+
+    IF v_contract.opened_at IS NULL THEN
+        RAISE EXCEPTION 'Contract id=% has no opened_at date', p_contract_id;
+    END IF;
+
+    v_monthly_rate := v_annual_rate / 12.0;
+
+    -- ============================================================
+    -- FLAT Interest: إجمالي الفائدة = المبلغ × المعدل × (المدة/12)
+    -- Total interest = Principal * Rate * (Term / 12)
+    -- Split equally across all installments
+    -- ============================================================
+    IF v_contract.interest_type = 'FLAT' THEN
+
+        v_total_interest := ROUND(v_contract.principal * v_annual_rate * (v_term_months::NUMERIC / 12.0), 2);
+        v_monthly_principal := ROUND(v_contract.principal / v_term_months, 2);
+        v_monthly_interest  := ROUND(v_total_interest / v_term_months, 2);
+
+        FOR v_seq IN 1..v_term_months LOOP
+            v_due_date := (v_contract.opened_at::DATE) + (v_seq * INTERVAL '1 month')::INTERVAL;
+
+            -- التعامل مع فرق التقريب في القسط الأخير
+            -- Handle rounding difference on the last installment
+            IF v_seq = v_term_months THEN
+                v_monthly_principal := v_contract.principal - v_principal_sum;
+                v_monthly_interest  := v_total_interest - v_interest_sum;
+            END IF;
+
+            INSERT INTO installment (contract_id, seq, due_on, principal_due, interest_due, fee_due, status)
+            VALUES (p_contract_id, v_seq, v_due_date::DATE, v_monthly_principal, v_monthly_interest, 0, 'DUE');
+
+            v_principal_sum := v_principal_sum + v_monthly_principal;
+            v_interest_sum  := v_interest_sum  + v_monthly_interest;
+        END LOOP;
+
+    -- ============================================================
+    -- REDUCING Interest (Annuity): القسط الثابت EMI
+    -- EMI = P * r * (1+r)^n / ((1+r)^n - 1)
+    -- where P = principal, r = monthly rate, n = term months
+    -- ============================================================
+    ELSIF v_contract.interest_type = 'REDUCING' THEN
+
+        IF v_monthly_rate = 0 THEN
+            -- حالة خاصة: معدل فائدة صفر
+            -- Special case: zero interest rate
+            v_emi := ROUND(v_contract.principal / v_term_months, 2);
+        ELSE
+            v_emi := ROUND(
+                v_contract.principal * v_monthly_rate * POWER(1 + v_monthly_rate, v_term_months)
+                / (POWER(1 + v_monthly_rate, v_term_months) - 1),
+                2
+            );
+        END IF;
+
+        v_remaining_principal := v_contract.principal;
+
+        FOR v_seq IN 1..v_term_months LOOP
+            v_due_date := (v_contract.opened_at::DATE) + (v_seq * INTERVAL '1 month')::INTERVAL;
+
+            -- حساب فائدة القسط على الرصيد المتبقي
+            -- Interest on remaining balance
+            v_monthly_interest := ROUND(v_remaining_principal * v_monthly_rate, 2);
+            v_monthly_principal := v_emi - v_monthly_interest;
+
+            -- التعامل مع القسط الأخير لضمان المجموع الصحيح
+            -- Last installment: settle any rounding remainder
+            IF v_seq = v_term_months THEN
+                v_monthly_principal := v_remaining_principal;
+                v_monthly_interest  := v_emi - v_monthly_principal;
+                -- Ensure non-negative interest
+                IF v_monthly_interest < 0 THEN
+                    v_monthly_interest := 0;
+                END IF;
+            END IF;
+
+            INSERT INTO installment (contract_id, seq, due_on, principal_due, interest_due, fee_due, status)
+            VALUES (p_contract_id, v_seq, v_due_date::DATE, v_monthly_principal, v_monthly_interest, 0, 'DUE');
+
+            v_remaining_principal := v_remaining_principal - v_monthly_principal;
+            v_principal_sum := v_principal_sum + v_monthly_principal;
+        END LOOP;
+
+    ELSE
+        RAISE EXCEPTION 'Unsupported interest_type=% for contract id=%', v_contract.interest_type, p_contract_id;
+    END IF;
+
+    RETURN v_term_months;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION fn_generate_installments IS
+    'توليد جدول الأقساط لعقد مالي — يدعم FLAT و REDUCING / Generate installment schedule supporting FLAT and REDUCING (annuity) methods';
+
+-- -----------------------------------------------------------
+-- fn_process_payment: معالجة دفعة على قسط عقد مالي
+-- Process a payment against a contract installment
+-- Allocates to interest first, then principal, then fees
+-- -----------------------------------------------------------
+CREATE OR REPLACE FUNCTION fn_process_payment(
+    p_contract_id     BIGINT,
+    p_installment_id  BIGINT,
+    p_amount          NUMERIC,
+    p_channel         TEXT,
+    p_idempotency_key TEXT
+)
+RETURNS BIGINT AS $$
+DECLARE
+    v_contract      RECORD;
+    v_installment   RECORD;
+    v_remaining     NUMERIC(18,2);
+    v_alloc_interest  NUMERIC(18,2) := 0;
+    v_alloc_principal NUMERIC(18,2) := 0;
+    v_alloc_fee       NUMERIC(18,2) := 0;
+    v_interest_due  NUMERIC(18,2);
+    v_principal_due NUMERIC(18,2);
+    v_fee_due       NUMERIC(18,2);
+    v_payment_id    BIGINT;
+    v_new_status    TEXT;
+    v_all_paid      BOOLEAN;
+BEGIN
+    -- ============================================================
+    -- التحقق من Idempotency — منع الدفع المكرر (BR-11)
+    -- Idempotency check — prevent duplicate payments
+    -- ============================================================
+    IF EXISTS (SELECT 1 FROM payment_event WHERE idempotency_key = p_idempotency_key) THEN
+        -- إرجاع معرف الدفعة الموجودة
+        -- Return existing payment ID for idempotent retry
+        SELECT id INTO v_payment_id
+        FROM payment_event
+        WHERE idempotency_key = p_idempotency_key;
+        RETURN v_payment_id;
+    END IF;
+
+    -- التحقق من صحة المبلغ
+    -- Validate payment amount
+    IF p_amount IS NULL OR p_amount <= 0 THEN
+        RAISE EXCEPTION 'Payment amount must be positive, got %', p_amount;
+    END IF;
+
+    -- التحقق من العقد
+    -- Validate contract exists and is in payable status
+    SELECT c.id, c.status, c.tenant_id
+    INTO v_contract
+    FROM contract c
+    WHERE c.id = p_contract_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Contract id=% not found', p_contract_id;
+    END IF;
+
+    IF v_contract.status NOT IN ('ACTIVE', 'IN_ARREARS') THEN
+        RAISE EXCEPTION 'Cannot process payment for contract id=% with status=%', p_contract_id, v_contract.status;
+    END IF;
+
+    -- التحقق من القسط
+    -- Validate installment exists and belongs to this contract
+    SELECT i.id, i.status,
+           (i.interest_due  - i.paid_interest)  AS interest_remaining,
+           (i.principal_due - i.paid_principal)  AS principal_remaining,
+           (i.fee_due       - i.paid_fee)        AS fee_remaining
+    INTO v_installment
+    FROM installment i
+    WHERE i.id = p_installment_id
+      AND i.contract_id = p_contract_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Installment id=% not found for contract id=%', p_installment_id, p_contract_id;
+    END IF;
+
+    IF v_installment.status IN ('PAID', 'WAIVED') THEN
+        RAISE EXCEPTION 'Installment id=% is already % — cannot accept payment', p_installment_id, v_installment.status;
+    END IF;
+
+    -- ============================================================
+    -- توزيع المبلغ: الفائدة أولاً ثم الأصل ثم الرسوم
+    -- Allocation order: Interest → Principal → Fees
+    -- ============================================================
+    v_remaining := p_amount;
+
+    -- 1. Allocate to interest
+    v_interest_due := v_installment.interest_remaining;
+    IF v_remaining > 0 AND v_interest_due > 0 THEN
+        v_alloc_interest := LEAST(v_remaining, v_interest_due);
+        v_remaining := v_remaining - v_alloc_interest;
+    END IF;
+
+    -- 2. Allocate to principal
+    v_principal_due := v_installment.principal_remaining;
+    IF v_remaining > 0 AND v_principal_due > 0 THEN
+        v_alloc_principal := LEAST(v_remaining, v_principal_due);
+        v_remaining := v_remaining - v_alloc_principal;
+    END IF;
+
+    -- 3. Allocate to fees
+    v_fee_due := v_installment.fee_remaining;
+    IF v_remaining > 0 AND v_fee_due > 0 THEN
+        v_alloc_fee := LEAST(v_remaining, v_fee_due);
+        v_remaining := v_remaining - v_alloc_fee;
+    END IF;
+
+    -- تحذير: إذا تبقى مبلغ بعد التوزيع الكامل يتم تجاهله (overpayment)
+    -- Note: Any excess after full allocation is ignored (overpayment handling is out of scope)
+
+    -- ============================================================
+    -- إدراج حدث الدفع
+    -- Insert payment event
+    -- ============================================================
+    INSERT INTO payment_event (contract_id, installment_id, paid_on, amount_principal, amount_interest, amount_fee, channel, idempotency_key)
+    VALUES (p_contract_id, p_installment_id, NOW(), v_alloc_principal, v_alloc_interest, v_alloc_fee, p_channel, p_idempotency_key)
+    RETURNING id INTO v_payment_id;
+
+    -- ============================================================
+    -- تحديث مبالغ القسط المدفوعة وحالته
+    -- Update installment paid amounts and status
+    -- ============================================================
+    UPDATE installment
+    SET paid_principal = paid_principal + v_alloc_principal,
+        paid_interest  = paid_interest  + v_alloc_interest,
+        paid_fee       = paid_fee       + v_alloc_fee,
+        status = CASE
+            WHEN (paid_principal + v_alloc_principal) >= principal_due
+             AND (paid_interest  + v_alloc_interest)  >= interest_due
+             AND (paid_fee       + v_alloc_fee)       >= fee_due
+            THEN 'PAID'
+            ELSE 'PARTIAL'
+        END
+    WHERE id = p_installment_id;
+
+    -- ============================================================
+    -- قيود الدفتر الفرعي — أصل وفائدة
+    -- Subledger entries for principal and interest portions
+    -- ============================================================
+    IF v_alloc_principal > 0 THEN
+        INSERT INTO subledger_entry (contract_id, event_type, dr_account, cr_account, amount, posted_at, ref, idempotency_key)
+        VALUES (
+            p_contract_id,
+            'PAYMENT_PRINCIPAL',
+            'CASH',                       -- مدين: النقد
+            'LOAN_RECEIVABLE',            -- دائن: ذمم القروض
+            v_alloc_principal,
+            NOW(),
+            'payment_event_id=' || v_payment_id,
+            p_idempotency_key || '_PRINCIPAL'
+        );
+    END IF;
+
+    IF v_alloc_interest > 0 THEN
+        INSERT INTO subledger_entry (contract_id, event_type, dr_account, cr_account, amount, posted_at, ref, idempotency_key)
+        VALUES (
+            p_contract_id,
+            'PAYMENT_INTEREST',
+            'CASH',                       -- مدين: النقد
+            'INTEREST_INCOME',            -- دائن: إيراد الفائدة
+            v_alloc_interest,
+            NOW(),
+            'payment_event_id=' || v_payment_id,
+            p_idempotency_key || '_INTEREST'
+        );
+    END IF;
+
+    -- ============================================================
+    -- التحقق مما إذا تم سداد جميع الأقساط — إغلاق العقد
+    -- Check if all installments are fully paid → close the contract
+    -- ============================================================
+    SELECT NOT EXISTS (
+        SELECT 1 FROM installment
+        WHERE contract_id = p_contract_id
+          AND status NOT IN ('PAID', 'WAIVED')
+    ) INTO v_all_paid;
+
+    IF v_all_paid THEN
+        UPDATE contract
+        SET status = 'CLOSED',
+            closed_at = NOW()
+        WHERE id = p_contract_id;
+    END IF;
+
+    RETURN v_payment_id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION fn_process_payment IS
+    'معالجة دفعة على قسط — توزيع تلقائي (فائدة ← أصل ← رسوم) مع قيود محاسبية / Process payment with auto-allocation (interest→principal→fees) and subledger entries';
+
+-- -----------------------------------------------------------
+-- fn_update_aging_buckets: تحديث التصنيف العمري للمتأخرات
+-- Update aging buckets for all active contracts
+-- Applies penalties based on BR-08 aging policy
+-- Called by scheduler (pg_cron or application-level)
+-- -----------------------------------------------------------
+CREATE OR REPLACE FUNCTION fn_update_aging_buckets()
+RETURNS INTEGER AS $$
+DECLARE
+    v_contract        RECORD;
+    v_max_days_overdue INTEGER;
+    v_aging_bucket    TEXT;
+    v_contracts_updated INTEGER := 0;
+    v_grace_period    INTEGER := 5;  -- فترة السماح بالأيام / Grace period in days
+BEGIN
+    -- المرور على جميع العقود النشطة والمتأخرة
+    -- Iterate over all ACTIVE and IN_ARREARS contracts
+    FOR v_contract IN
+        SELECT c.id, c.tenant_id, c.status, c.meta
+        FROM contract c
+        WHERE c.status IN ('ACTIVE', 'IN_ARREARS')
+    LOOP
+        -- حساب أقصى عدد أيام تأخر
+        -- Calculate maximum days overdue across all installments
+        SELECT COALESCE(MAX(GREATEST(CURRENT_DATE - i.due_on, 0)), 0)
+        INTO v_max_days_overdue
+        FROM installment i
+        WHERE i.contract_id = v_contract.id
+          AND i.status IN ('DUE', 'LATE', 'PARTIAL')
+          AND i.due_on < CURRENT_DATE;
+
+        -- تحديد التصنيف العمري
+        -- Determine aging bucket
+        v_aging_bucket := CASE
+            WHEN v_max_days_overdue = 0                     THEN NULL
+            WHEN v_max_days_overdue BETWEEN 1   AND 30      THEN '30'
+            WHEN v_max_days_overdue BETWEEN 31  AND 60      THEN '60'
+            WHEN v_max_days_overdue BETWEEN 61  AND 90      THEN '90'
+            WHEN v_max_days_overdue BETWEEN 91  AND 180     THEN '180'
+            WHEN v_max_days_overdue > 180                   THEN '180+'
+            ELSE NULL
+        END;
+
+        -- تحديث حالة الأقساط المتأخرة
+        -- Mark overdue installments as LATE
+        UPDATE installment
+        SET status = 'LATE'
+        WHERE contract_id = v_contract.id
+          AND status IN ('DUE', 'PARTIAL')
+          AND due_on < CURRENT_DATE - v_grace_period;
+
+        -- ============================================================
+        -- BR-08: سياسة التصعيد العمري
+        -- 30 يوم ← تنبيه، 60 ← تصعيد، 90 ← تعليق، 180+ ← شطب
+        -- 30d → alert, 60d → escalate, 90d → suspend, 180+ → write-off
+        -- ============================================================
+        IF v_aging_bucket IS NOT NULL AND v_max_days_overdue > v_grace_period THEN
+
+            -- إنشاء حدث غرامة إذا لم يوجد لهذا التصنيف اليوم
+            -- Create penalty event if one doesn't exist for this bucket today
+            IF NOT EXISTS (
+                SELECT 1 FROM penalty_event pe
+                WHERE pe.contract_id = v_contract.id
+                  AND pe.aging_bucket = v_aging_bucket
+                  AND pe.created_at::DATE = CURRENT_DATE
+            ) THEN
+                INSERT INTO penalty_event (contract_id, kind, amount, aging_bucket, created_at)
+                VALUES (
+                    v_contract.id,
+                    'LATE_PENALTY',
+                    CASE v_aging_bucket
+                        WHEN '30'   THEN 50.00    -- غرامة أولى
+                        WHEN '60'   THEN 100.00   -- غرامة تصعيد
+                        WHEN '90'   THEN 200.00   -- غرامة تعليق
+                        WHEN '180'  THEN 500.00   -- غرامة ما قبل الشطب
+                        WHEN '180+' THEN 1000.00  -- غرامة شطب
+                        ELSE 0
+                    END,
+                    v_aging_bucket,
+                    NOW()
+                );
+            END IF;
+
+            -- تحديث حالة العقد إلى IN_ARREARS إذا تجاوز فترة السماح
+            -- Update contract status to IN_ARREARS if overdue beyond grace
+            IF v_contract.status = 'ACTIVE' AND v_max_days_overdue > v_grace_period THEN
+                UPDATE contract
+                SET status = 'IN_ARREARS'
+                WHERE id = v_contract.id;
+            END IF;
+
+            -- BR-08: شطب العقد إذا تجاوز 180 يوم
+            -- Write off contract if overdue > 180 days
+            IF v_max_days_overdue > 180 THEN
+                UPDATE contract
+                SET status = 'WRITTEN_OFF'
+                WHERE id = v_contract.id
+                  AND status != 'WRITTEN_OFF';
+            END IF;
+
+            v_contracts_updated := v_contracts_updated + 1;
+        END IF;
+
+    END LOOP;
+
+    RETURN v_contracts_updated;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION fn_update_aging_buckets IS
+    'تحديث التصنيف العمري وتطبيق الغرامات (BR-08) — يُستدعى دورياً / Update aging buckets and apply penalties per BR-08 escalation policy';
+
+-- -----------------------------------------------------------
+-- fn_calculate_early_settlement: حساب مبلغ التسوية المبكرة
+-- Calculate early settlement amount using Outstanding Balance method
+-- Returns: outstanding_principal, accrued_interest, settlement_fee, total_settlement
+-- -----------------------------------------------------------
+CREATE OR REPLACE FUNCTION fn_calculate_early_settlement(
+    p_contract_id    BIGINT,
+    p_settlement_date DATE
+)
+RETURNS TABLE (
+    outstanding_principal NUMERIC(18,2),
+    accrued_interest      NUMERIC(18,2),
+    settlement_fee        NUMERIC(18,2),
+    total_settlement      NUMERIC(18,2)
+) AS $$
+DECLARE
+    v_contract            RECORD;
+    v_outstanding         NUMERIC(18,2);
+    v_accrued             NUMERIC(18,2);
+    v_fee                 NUMERIC(18,2) := 0;
+    v_annual_rate         NUMERIC(18,8);
+    v_last_payment_date   DATE;
+    v_days_accrued        INTEGER;
+    v_daily_rate          NUMERIC(18,8);
+BEGIN
+    -- التحقق من العقد
+    -- Validate contract
+    SELECT c.id, c.status, c.principal, c.interest_type, c.meta, c.currency, c.product_id, c.day_count
+    INTO v_contract
+    FROM contract c
+    WHERE c.id = p_contract_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Contract id=% not found', p_contract_id;
+    END IF;
+
+    IF v_contract.status NOT IN ('ACTIVE', 'IN_ARREARS') THEN
+        RAISE EXCEPTION 'Cannot calculate settlement for contract id=% with status=%', p_contract_id, v_contract.status;
+    END IF;
+
+    IF p_settlement_date < CURRENT_DATE THEN
+        RAISE EXCEPTION 'Settlement date cannot be in the past';
+    END IF;
+
+    -- ============================================================
+    -- حساب الأصل المستحق المتبقي
+    -- Calculate outstanding principal: sum of remaining principal across unpaid installments
+    -- ============================================================
+    SELECT COALESCE(SUM(i.principal_due - i.paid_principal), 0)
+    INTO v_outstanding
+    FROM installment i
+    WHERE i.contract_id = p_contract_id
+      AND i.status NOT IN ('PAID', 'WAIVED');
+
+    -- ============================================================
+    -- حساب الفائدة المستحقة من آخر دفعة حتى تاريخ التسوية
+    -- Calculate accrued interest from last payment date to settlement date
+    -- ============================================================
+    v_annual_rate := COALESCE((v_contract.meta ->> 'annual_rate')::NUMERIC(18,8), 0);
+
+    -- تحديد تاريخ آخر دفعة أو تاريخ فتح العقد
+    -- Determine last payment date or contract open date
+    SELECT COALESCE(MAX(pe.paid_on::DATE), v_contract.meta->>'opened_at')
+    INTO v_last_payment_date
+    FROM payment_event pe
+    WHERE pe.contract_id = p_contract_id;
+
+    IF v_last_payment_date IS NULL THEN
+        -- إذا لم يكن هناك دفعات، نبدأ من أول قسط
+        -- If no payments, start from first installment due date
+        SELECT MIN(i.due_on)
+        INTO v_last_payment_date
+        FROM installment i
+        WHERE i.contract_id = p_contract_id;
+    END IF;
+
+    v_days_accrued := GREATEST(p_settlement_date - v_last_payment_date, 0);
+
+    -- حساب المعدل اليومي حسب نظام حساب الأيام
+    -- Calculate daily rate based on day count convention
+    v_daily_rate := CASE v_contract.day_count
+        WHEN 'ACT/365' THEN v_annual_rate / 365.0
+        WHEN 'ACT/360' THEN v_annual_rate / 360.0
+        ELSE v_annual_rate / 360.0   -- 30E/360 default
+    END;
+
+    v_accrued := ROUND(v_outstanding * v_daily_rate * v_days_accrued, 2);
+
+    -- ============================================================
+    -- البحث عن رسم التسوية المبكرة من رسوم المنتج
+    -- Lookup early settlement fee from product charges
+    -- ============================================================
+    SELECT COALESCE(
+        (SELECT ch.value
+         FROM product_charge_link pcl
+         JOIN charge ch ON ch.id = pcl.charge_id
+         WHERE pcl.product_id = v_contract.product_id
+           AND ch.code = 'EARLY_SETTLEMENT_FEE'
+         LIMIT 1),
+        0
+    ) INTO v_fee;
+
+    -- إرجاع النتائج
+    -- Return settlement breakdown
+    outstanding_principal := v_outstanding;
+    accrued_interest      := v_accrued;
+    settlement_fee        := v_fee;
+    total_settlement      := v_outstanding + v_accrued + v_fee;
+    RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION fn_calculate_early_settlement IS
+    'حساب مبلغ التسوية المبكرة — الأصل المتبقي + الفائدة المستحقة + رسم التسوية / Calculate early settlement using outstanding balance method';
+
+-- ============================================================
+-- 25. ADDITIONAL INDEXES (Query Optimization)
+-- فهارس إضافية لتحسين أداء الاستعلامات الشائعة
+-- Composite, partial, and GIN indexes for common query patterns
+-- ============================================================
+
+-- فهرس جزئي: المنتجات النشطة فقط (الاستعلام الأكثر شيوعاً)
+-- Partial index: Active products only (most common query pattern)
+CREATE INDEX idx_product_active
+    ON product(tenant_id, type, category_id)
+    WHERE status = 'ACTIVE';
+
+-- فهرس جزئي: العقود النشطة فقط
+-- Partial index: Active contracts only
+CREATE INDEX idx_contract_active
+    ON contract(tenant_id, product_id, customer_id)
+    WHERE status = 'ACTIVE';
+
+-- فهرس جزئي: الحجوزات المعلقة مع TTL — لانتهاء الصلاحية التلقائي (BR-10)
+-- Partial index: HOLD reservations with TTL for automatic expiry processing
+CREATE INDEX idx_reservation_hold_ttl
+    ON reservation(hold_until)
+    WHERE status = 'HOLD' AND hold_until IS NOT NULL;
+
+-- فهرس مركب: الأقساط حسب العقد والحالة وتاريخ الاستحقاق — لمعالجة الدفعات
+-- Composite index: Installments by contract, status, due date for payment processing
+CREATE INDEX idx_installment_contract_status_due
+    ON installment(contract_id, status, due_on);
+
+-- فهرس مركب: أحداث الدفع حسب العقد وتاريخ الدفع — لكشوف الحساب
+-- Composite index: Payment events by contract and payment date for statement generation
+CREATE INDEX idx_payment_event_contract_paid
+    ON payment_event(contract_id, paid_on);
+
+-- فهرس مركب: أحداث الغرامات حسب العقد وتاريخ الإنشاء — لاستعلامات الشيخوخة
+-- Composite index: Penalty events by contract and creation date for aging queries
+CREATE INDEX idx_penalty_event_contract_created
+    ON penalty_event(contract_id, created_at);
+
+-- فهرس GIN: البحث في بيانات JSONB للمنتج
+-- GIN index: JSONB queries on product payload
+CREATE INDEX idx_product_payload_gin
+    ON product USING GIN(payload);
+
+-- فهرس GIN: البحث في بيانات JSONB للعقد
+-- GIN index: JSONB queries on contract meta
+CREATE INDEX idx_contract_meta_gin
+    ON contract USING GIN(meta);
+
+-- فهرس مركب: قيود الدفتر الفرعي حسب نوع الحدث وتاريخ الترحيل — للتقارير المحاسبية
+-- Composite index: Subledger entries by event type and posting date for accounting reports
+CREATE INDEX idx_subledger_event_posted
+    ON subledger_entry(event_type, posted_at);

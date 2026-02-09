@@ -1,0 +1,69 @@
+@startuml
+title Product Lifecycle — State Machine
+
+skinparam state {
+  BackgroundColor<<draft>> #E3F2FD
+  BorderColor<<draft>> #1565C0
+  BackgroundColor<<active>> #E8F5E9
+  BorderColor<<active>> #2E7D32
+  BackgroundColor<<suspended>> #FFF3E0
+  BorderColor<<suspended>> #E65100
+  BackgroundColor<<retired>> #F3E5F5
+  BorderColor<<retired>> #6A1B9A
+}
+
+skinparam StateFontSize 14
+skinparam StateAttributeFontSize 12
+skinparam ArrowColor #37474F
+skinparam ArrowFontSize 11
+
+[*] --> DRAFT : Create Product
+
+state "DRAFT" as DRAFT <<draft>> {
+}
+
+state "ACTIVE" as ACTIVE <<active>> {
+}
+
+state "SUSPENDED" as SUSPENDED <<suspended>> {
+}
+
+state "RETIRED" as RETIRED <<retired>> {
+}
+
+DRAFT --> DRAFT : Edit / Update\n(while in draft)
+
+DRAFT --> ACTIVE : Activate\n(Maker-Checker approval)
+note on link #FFFDE7
+  **Requires:**
+  - Active pricing (BR-02)
+  - Approved by different user (BR-07)
+end note
+
+ACTIVE --> SUSPENDED : Suspend\n(with reason)
+SUSPENDED --> ACTIVE : Reactivate
+ACTIVE --> RETIRED : Retire\n(end of lifecycle)
+SUSPENDED --> RETIRED : Retire\n(from suspended)
+RETIRED --> [*] : End
+
+note right of DRAFT
+  Can edit all fields, add versions,
+  configure pricing
+end note
+
+note right of ACTIVE
+  Published to channels,
+  available for contracts/reservations
+end note
+
+note left of SUSPENDED
+  Temporarily unavailable,
+  existing contracts continue
+end note
+
+note left of RETIRED
+  No new contracts,
+  existing contracts run to completion
+end note
+
+@enduml

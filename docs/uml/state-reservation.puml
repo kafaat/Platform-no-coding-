@@ -1,0 +1,75 @@
+@startuml
+title Reservation — State Machine
+
+skinparam state {
+  BackgroundColor<<hold>> #FFF9C4
+  BorderColor<<hold>> #F9A825
+  BackgroundColor<<confirmed>> #E8F5E9
+  BorderColor<<confirmed>> #2E7D32
+  BackgroundColor<<expired>> #EFEBE9
+  BorderColor<<expired>> #795548
+  BackgroundColor<<cancelled>> #FFEBEE
+  BorderColor<<cancelled>> #C62828
+  BackgroundColor<<completed>> #E3F2FD
+  BorderColor<<completed>> #1565C0
+}
+
+skinparam StateFontSize 14
+skinparam StateAttributeFontSize 12
+skinparam ArrowColor #37474F
+skinparam ArrowFontSize 11
+
+[*] --> HOLD : Create Reservation\n(with TTL)
+
+state "HOLD" as HOLD <<hold>> {
+}
+
+state "CONFIRMED" as CONFIRMED <<confirmed>> {
+}
+
+state "EXPIRED" as EXPIRED <<expired>> {
+}
+
+state "CANCELLED" as CANCELLED <<cancelled>> {
+}
+
+state "COMPLETED" as COMPLETED <<completed>> {
+}
+
+HOLD --> CONFIRMED : Payment received\nwithin TTL
+HOLD --> EXPIRED : TTL expired without\npayment (BR-10, automatic)
+HOLD --> CANCELLED : Customer cancels\nbefore TTL
+
+CONFIRMED --> CANCELLED : Cancel after\nconfirmation\n(apply cancellation policy)
+CONFIRMED --> COMPLETED : Service delivered /\nslot ended
+
+EXPIRED --> [*] : End
+CANCELLED --> [*] : End
+COMPLETED --> [*] : End
+
+note right of HOLD
+  Capacity reserved temporarily,
+  auto-expires after **hold_until**
+end note
+
+note right of CONFIRMED
+  Deposit paid,
+  capacity locked
+end note
+
+note left of CANCELLED
+  Cancellation penalty applied
+  per **cancellation_policy**
+end note
+
+note left of EXPIRED
+  Auto-expired by
+  **fn_expire_held_reservations()**
+end note
+
+note right of COMPLETED
+  Service successfully
+  delivered
+end note
+
+@enduml

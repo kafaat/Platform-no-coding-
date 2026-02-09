@@ -1,0 +1,144 @@
+@startuml
+title Reservation Flow — Sequence Diagram (with Error Flows)
+
+skinparam participant {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+  FontSize 13
+}
+
+skinparam actor {
+  BackgroundColor #FFF9C4
+  BorderColor #F9A825
+}
+
+skinparam sequence {
+  ArrowColor #37474F
+  LifeLineBorderColor #90A4AE
+  LifeLineBackgroundColor #ECEFF1
+  GroupBorderColor #1565C0
+  GroupHeaderFontColor #FFFFFF
+  GroupBackgroundColor #E3F2FD
+}
+
+actor Client
+participant "API Gateway" as API #E3F2FD
+participant "Reservation\nService" as RS #E8F5E9
+participant "Product\nService" as PS #FFF3E0
+participant "Pricing\nService" as PR #F3E5F5
+participant "Numbering\nService" as NS #EFEBE9
+participant "Payment\nGateway" as PG #FFEBEE
+participant "Notification\nService" as NT #FFF9C4
+
+== Phase 1: Check Availability ==
+
+Client -> API : POST /reservations/availability\n(product_id, date_range)
+activate API
+API -> RS : checkAvailability(product_id, date_range)
+activate RS
+RS -> PS : getProductCapacity(product_id)
+activate PS
+PS --> RS : capacity & slot configuration
+deactivate PS
+RS --> API : available slots[]
+deactivate RS
+API --> Client : 200 OK — available slots
+deactivate API
+
+== Phase 2: Create Reservation (HOLD) ==
+
+Client -> API : POST /reservations\n(product_id, slot, customer_id)
+activate API
+API -> RS : createReservation(...)
+activate RS
+
+RS -> NS : reserveNumber(RESERVATION scheme)
+activate NS
+NS --> RS : RES-2026-001234
+deactivate NS
+
+RS -> PR : calculateDeposit(product_id, slot)
+activate PR
+PR --> RS : deposit amount + tax
+deactivate PR
+
+RS -> RS : Create HOLD\n(set hold_until = now + TTL)
+RS --> API : 201 Created\n{reservation_id, status: HOLD,\nhold_until, deposit_amount}
+deactivate RS
+API --> Client : 201 Created — reservation details
+deactivate API
+
+== Phase 3: Confirm Reservation ==
+
+Client -> API : POST /reservations/{id}/confirm\n(payment_details)
+activate API
+API -> RS : confirmReservation(id, payment_details)
+activate RS
+
+RS -> PG : processDeposit(amount, payment_details)
+activate PG
+
+alt #FFEBEE TTL Expired Before Payment
+  RS --> API : 409 Conflict — Reservation expired
+  API --> Client : 409 Conflict\n{error: "HOLD expired, reservation auto-cancelled"}
+  deactivate PG
+  deactivate RS
+  deactivate API
+
+else #E8F5E9 Payment Success
+  PG --> RS : Payment confirmed (txn_id)
+  deactivate PG
+
+  RS -> RS : Status: HOLD → CONFIRMED\n(lock capacity)
+
+  RS -> NT : sendConfirmation(customer, reservation)
+  activate NT
+  NT --> RS : Notification queued
+  deactivate NT
+
+  RS --> API : 200 OK\n{status: CONFIRMED, txn_id}
+  deactivate RS
+  API --> Client : 200 OK — Reservation confirmed
+  deactivate API
+
+else #FFF3E0 Payment Failed
+  PG --> RS : Payment declined (reason)
+  deactivate PG
+
+  RS --> API : 402 Payment Required\n{error: "Payment declined", reason}
+  deactivate RS
+  API --> Client : 402 Payment Required\n(retry before hold_until)
+  deactivate API
+
+end
+
+== Phase 4: Customer Cancellation (after confirmation) ==
+
+Client -> API : POST /reservations/{id}/cancel
+activate API
+API -> RS : cancelReservation(id)
+activate RS
+
+RS -> RS : Load cancellation_policy\nfor product
+RS -> PR : calculatePenalty(reservation, policy)
+activate PR
+PR --> RS : penalty_amount
+deactivate PR
+
+RS -> PG : processRefund(deposit - penalty)
+activate PG
+PG --> RS : Refund processed
+deactivate PG
+
+RS -> RS : Status: CONFIRMED → CANCELLED
+RS -> NT : sendCancellationNotice(customer, penalty)
+activate NT
+NT --> RS : Notification queued
+deactivate NT
+
+RS --> API : 200 OK\n{status: CANCELLED,\npenalty_amount, refund_amount}
+deactivate RS
+API --> Client : 200 OK — Cancellation complete
+deactivate API
+
+@enduml

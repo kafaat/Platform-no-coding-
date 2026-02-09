@@ -1,0 +1,214 @@
+# ============================================================
+# Dynamic Product System — Development Environment
+# docker-compose.yml
+#
+# Usage:
+#   cp .env.example .env        # Configure environment variables
+#   docker-compose up -d        # Start all services
+#   docker-compose ps           # Check service status
+#   docker-compose logs -f      # Follow logs
+#   docker-compose down         # Stop services
+#
+# Services:
+#   - PostgreSQL 15  (port 5432)  — Primary database
+#   - Redis 7        (port 6379)  — Cache & sessions
+#   - Kafka (KRaft)  (port 9092)  — Event bus
+#   - pgAdmin 4      (port 5050)  — Database management UI
+# ============================================================
+
+services:
+  # ----------------------------------------------------------
+  # PostgreSQL 15 — Primary Database
+  # ----------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: dps-postgres
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_NAME:-dps_dev}
+      POSTGRES_USER: ${DB_USER:-dps_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.utf8 --lc-ctype=en_US.utf8"
+      TZ: "UTC"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-dps_admin} -d ${DB_NAME:-dps_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - dps-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    command: >
+      postgres
+        -c shared_buffers=256MB
+        -c effective_cache_size=512MB
+        -c work_mem=16MB
+        -c maintenance_work_mem=128MB
+        -c max_connections=200
+        -c log_statement=all
+        -c log_min_duration_statement=200
+        -c timezone=UTC
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64M
+
+  # ----------------------------------------------------------
+  # Redis 7 — Cache, Sessions, Rate Limiting
+  # ----------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: dps-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - dps-network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 64M
+    command: >
+      redis-server
+        --appendonly yes
+        --appendfsync everysec
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --tcp-backlog 511
+        --timeout 300
+        --tcp-keepalive 60
+        --loglevel notice
+        --databases 16
+    security_opt:
+      - no-new-privileges:true
+
+  # ----------------------------------------------------------
+  # Kafka (Bitnami, KRaft mode — no Zookeeper)
+  # ----------------------------------------------------------
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: dps-kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft mode (no Zookeeper)
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # Listeners
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Auto-create topics
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # Performance tuning
+      KAFKA_CFG_NUM_PARTITIONS: 3
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_CFG_LOG_RETENTION_HOURS: 168
+      KAFKA_CFG_LOG_SEGMENT_BYTES: 1073741824
+      KAFKA_CFG_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+      # Allow plaintext for development
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+      TZ: "UTC"
+    volumes:
+      - kafka_data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - dps-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+
+  # ----------------------------------------------------------
+  # pgAdmin 4 — Database Administration UI
+  # ----------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: dps-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@dps.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?PGADMIN_PASSWORD must be set in .env}
+      PGADMIN_CONFIG_SERVER_MODE: "True"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "True"
+      TZ: "UTC"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dps-network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    security_opt:
+      - no-new-privileges:true
+
+# ==============================================================
+# Networks
+# ==============================================================
+networks:
+  dps-network:
+    driver: bridge
+    name: dps-network
+
+# ==============================================================
+# Volumes
+# ==============================================================
+volumes:
+  postgres_data:
+    driver: local
+    name: dps-postgres-data
+  redis_data:
+    driver: local
+    name: dps-redis-data
+  kafka_data:
+    driver: local
+    name: dps-kafka-data
