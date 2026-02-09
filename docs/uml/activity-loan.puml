@@ -1,0 +1,70 @@
+@startuml
+title Loan Contract Lifecycle — Activity Diagram
+
+start
+
+:Client Selects Financial Product;
+:Enter Amount / Currency / Term;
+
+:Check Eligibility (Score/DSR/KYC);
+
+if (Eligible?) then (yes)
+  :Upload Required Documents;
+
+  if (All Mandatory Docs Complete?) then (yes)
+    :Configure Collateral;
+    :Calculate Interest (Flat/Reducing);
+    :Preview Installment Schedule;
+    :Review Fees & Penalties;
+
+    :Reserve Contract Number (Numbering Service);
+
+    if (Number Reserved?) then (yes)
+      :Create Contract (DRAFT);
+      :Open Sub-ledger;
+      :Digital Signature;
+      :Activate Contract;
+      :Disburse Funds;
+      :Generate Installment Schedule;
+
+      :== Repayment Phase ==;
+
+      while (Outstanding Balance > 0?) is (yes)
+        :Wait for Installment Due Date;
+
+        if (Payment Received within Grace?) then (yes)
+          :Record Payment;
+          :Update Installment (PAID/PARTIAL);
+          :Post Sub-ledger Entry;
+        else (no)
+          :Apply Late Penalty;
+          :Update Aging Bucket;
+
+          if (Days Overdue > 180?) then (yes)
+            :Consider Write-off;
+          elseif (Restructure Agreed?) then (yes)
+            :Reschedule Installments;
+            :Status → RESTRUCTURED;
+          else (continue collection)
+            :Escalate per Aging Policy;
+          endif
+        endif
+      endwhile (no — Paid Off)
+
+      :Close Contract;
+      :Close Sub-ledger;
+
+    else (failed)
+      :Retry or Cancel Application;
+    endif
+
+  else (incomplete)
+    :Suspend Until Documents Complete;
+  endif
+
+else (not eligible)
+  :Reject with Reason;
+endif
+
+stop
+@enduml

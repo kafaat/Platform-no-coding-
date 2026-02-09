@@ -29,10 +29,12 @@ A no-code platform foundation for managing dynamic products across multiple type
 | Document | Description |
 |---|---|
 | [CLAUDE.md](CLAUDE.md) | AI assistant guidance |
-| [SRS V2.0](docs/SRS-v2.0.md) | Full requirements specification |
-| [API Spec](docs/api-specification.md) | REST API endpoints |
-| [Schema DDL](db/schema.sql) | PostgreSQL database schema |
-| [UML Diagrams](docs/uml/) | PlantUML architecture diagrams |
+| [SRS V2.0](docs/SRS-v2.0.md) | Full requirements specification (15 use cases) |
+| [API Spec](docs/api-specification.md) | REST API endpoints (all resources) |
+| [Schema DDL](db/schema.sql) | PostgreSQL database schema (45+ tables) |
+| [Seed Data](db/seed.sql) | Reference data for initial setup |
+| [Interest Calculation](docs/interest-calculation.md) | Formulas, day count conventions, penalties |
+| [UML Diagrams](docs/uml/) | PlantUML architecture diagrams (9 diagrams) |
 
 ### Roadmap
 

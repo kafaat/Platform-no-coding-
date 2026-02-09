@@ -31,17 +31,22 @@ The system is designed as a **unified kernel** serving multiple product types th
 Platform-no-coding-/
 ├── CLAUDE.md                          # AI assistant guidance (this file)
 ├── README.md                          # Project overview
+├── .gitignore                         # Git ignore rules
 ├── db/
-│   └── schema.sql                     # Full DDL — PostgreSQL 15+ (40+ tables)
+│   ├── schema.sql                     # Full DDL — PostgreSQL 15+ (45+ tables)
+│   └── seed.sql                       # Reference/seed data for initial setup
 └── docs/
-    ├── SRS-v2.0.md                    # Complete SRS document
-    ├── api-specification.md           # REST API specification
+    ├── SRS-v2.0.md                    # Complete SRS document (15 use cases)
+    ├── api-specification.md           # REST API specification (all endpoints)
+    ├── interest-calculation.md        # Interest formulas & day count conventions
     └── uml/
         ├── use-case.puml              # Use case diagram
         ├── class-diagram.puml         # Core class diagram
         ├── sequence-contract.puml     # Loan contract creation sequence
         ├── state-contract.puml        # Contract state machine
-        ├── activity-reservation.puml   # Reservation lifecycle activity
+        ├── activity-reservation.puml  # Reservation lifecycle activity
+        ├── activity-product.puml      # Product activation lifecycle
+        ├── activity-loan.puml         # Loan contract lifecycle
         ├── component-diagram.puml     # Service components
         └── deployment-diagram.puml    # Infrastructure deployment
 ```
@@ -103,6 +108,7 @@ The full DDL is in `db/schema.sql`. Key entity groups:
 11. **Contracts**: `contract`, `installment`, `payment_event`, `penalty_event`, `subledger_entry`
 12. **Reservations**: `reservation`, `cancellation_policy`
 13. **Audit**: `audit_log`, `state_transition`, `domain_event`
+14. **Snapshots**: `pricing_snapshot`, `attribute_snapshot` (point-in-time capture)
 
 ### Key Constraints & Rules
 
@@ -140,6 +146,12 @@ Full spec in `docs/api-specification.md`.
 - `POST /api/v1/contracts/{id}/payments` — Record payment
 - `GET /api/v1/reservations/availability` — Check availability
 - `POST /api/v1/reservations` — Create reservation (HOLD)
+- `GET /api/v1/categories` — List/manage product categories
+- `GET /api/v1/attributes` — List/manage attribute definitions
+- `GET /api/v1/channels` — List/manage distribution channels
+- `GET /api/v1/charges` — List/manage charges & fees
+- `GET /api/v1/customers` — List/manage customers
+- `GET /api/v1/audit/logs` — Query audit trail
 
 ## Business Rules
 
@@ -226,7 +238,9 @@ Full spec in `docs/api-specification.md`.
 
 ## Reference Documents
 
-- [SRS V2.0](docs/SRS-v2.0.md) — Complete requirements specification
-- [API Specification](docs/api-specification.md) — REST API details
-- [Database Schema](db/schema.sql) — Full PostgreSQL DDL
-- [UML Diagrams](docs/uml/) — PlantUML source files
+- [SRS V2.0](docs/SRS-v2.0.md) — Complete requirements specification (15 use cases)
+- [API Specification](docs/api-specification.md) — REST API details (all resource endpoints)
+- [Database Schema](db/schema.sql) — Full PostgreSQL DDL (45+ tables)
+- [Seed Data](db/seed.sql) — Reference data for initial setup
+- [Interest Calculation](docs/interest-calculation.md) — Formulas, day count conventions, penalties
+- [UML Diagrams](docs/uml/) — PlantUML source files (9 diagrams)

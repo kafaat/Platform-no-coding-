@@ -465,6 +465,314 @@ Cancel a reservation.
 
 ---
 
+## 6. Categories
+
+### POST /api/v1/categories
+
+Create a product category.
+
+**Request Body:**
+```json
+{
+  "parent_id": null,
+  "name_ar": "إلكترونيات",
+  "name_en": "Electronics",
+  "type": "PHYSICAL",
+  "default_policies": {
+    "channels": ["WEB", "MOBILE"],
+    "tax_rate": 0.05
+  }
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "id": 5,
+  "parent_id": null,
+  "name_ar": "إلكترونيات",
+  "name_en": "Electronics",
+  "is_active": true
+}
+```
+
+### GET /api/v1/categories
+
+List categories as tree.
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `type` | string | Filter by type |
+| `is_active` | boolean | Filter by active status |
+| `flat` | boolean | Return flat list instead of tree (default: false) |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name_ar": "المنتجات المالية",
+      "name_en": "Financial Products",
+      "type": "FINANCIAL",
+      "is_active": true,
+      "children": [
+        {"id": 2, "name_ar": "قروض", "name_en": "Loans", "children": []}
+      ]
+    }
+  ]
+}
+```
+
+### PUT /api/v1/categories/{id}
+
+Update a category.
+
+### DELETE /api/v1/categories/{id}
+
+Disable a category (BR-09: cannot delete if active products exist).
+
+**Response:** `200 OK` or `409 CONFLICT` if active products exist.
+
+---
+
+## 7. Attributes
+
+### POST /api/v1/attributes/definitions
+
+Create an attribute definition.
+
+**Request Body:**
+```json
+{
+  "code": "COLOR",
+  "label_ar": "اللون",
+  "label_en": "Color",
+  "datatype": "ENUM",
+  "required": false,
+  "validation": {"allowed": ["RED", "BLUE", "GREEN"]},
+  "json_schema": null
+}
+```
+
+**Response:** `201 Created`
+
+### GET /api/v1/attributes/definitions
+
+List attribute definitions with filters.
+
+### POST /api/v1/attributes/sets
+
+Create an attribute set.
+
+**Request Body:**
+```json
+{
+  "name": "Electronics Attributes",
+  "description": "Common attributes for electronics",
+  "attributes": [
+    {"attribute_id": 1, "sort_order": 0},
+    {"attribute_id": 2, "sort_order": 1}
+  ]
+}
+```
+
+### PUT /api/v1/products/{id}/attributes
+
+Set attribute values for a product.
+
+**Request Body:**
+```json
+{
+  "values": [
+    {"attribute_id": 1, "value_text": "RED"},
+    {"attribute_id": 2, "value_number": 256}
+  ]
+}
+```
+
+**Response:** `200 OK`
+
+---
+
+## 8. Channels
+
+### GET /api/v1/channels
+
+List all available channels.
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {"id": 1, "code": "WEB", "name_ar": "الويب", "name_en": "Web"},
+    {"id": 2, "code": "MOBILE", "name_ar": "الجوال", "name_en": "Mobile App"},
+    {"id": 3, "code": "POS", "name_ar": "نقطة البيع", "name_en": "Point of Sale"},
+    {"id": 4, "code": "API", "name_ar": "واجهة برمجية", "name_en": "API Integration"},
+    {"id": 5, "code": "USSD", "name_ar": "خدمة USSD", "name_en": "USSD Service"},
+    {"id": 6, "code": "IVR", "name_ar": "الرد الصوتي", "name_en": "IVR"}
+  ]
+}
+```
+
+### PUT /api/v1/products/{id}/channels
+
+Configure product channels.
+
+**Request Body:**
+```json
+{
+  "channels": [
+    {
+      "channel_id": 1,
+      "enabled": true,
+      "limits": {"max_qty": 100, "max_price": 50000},
+      "display": {"show_price": true, "show_stock": true},
+      "feature_flags": {"new_ui": true}
+    }
+  ]
+}
+```
+
+**Response:** `200 OK`
+
+---
+
+## 9. Charges
+
+### POST /api/v1/charges
+
+Create a charge/fee/penalty definition.
+
+**Request Body:**
+```json
+{
+  "code": "LATE_FEE",
+  "name": "غرامة تأخير",
+  "kind": "FINE",
+  "basis": "PERCENT",
+  "value": 2.5,
+  "per": "MONTH",
+  "when_event": "OnLate",
+  "params": {"grace_days": 7, "max_amount": 10000}
+}
+```
+
+**Response:** `201 Created`
+
+### GET /api/v1/charges
+
+List charges with filters.
+
+| Param | Type | Description |
+|---|---|---|
+| `kind` | string | FEE, FINE, SUBSCRIPTION, COMMISSION |
+| `page` | integer | Page number |
+| `size` | integer | Page size |
+
+---
+
+## 10. Customers
+
+### POST /api/v1/customers
+
+Create a customer.
+
+**Request Body:**
+```json
+{
+  "code": "CUST-001",
+  "name_ar": "أحمد محمد",
+  "name_en": "Ahmed Mohammed",
+  "kyc_level": "BASIC",
+  "score": 650.00,
+  "phone": "+967771234567",
+  "email": "ahmed@example.com"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "id": 200,
+  "code": "CUST-001",
+  "kyc_level": "BASIC",
+  "created_at": "2026-02-09T12:00:00Z"
+}
+```
+
+### GET /api/v1/customers
+
+List customers with filters.
+
+| Param | Type | Description |
+|---|---|---|
+| `kyc_level` | string | NONE, BASIC, FULL |
+| `search` | string | Search by name or code |
+| `page` | integer | Page number |
+| `size` | integer | Page size |
+
+### GET /api/v1/customers/{id}
+
+Get customer details.
+
+### PUT /api/v1/customers/{id}
+
+Update customer information.
+
+---
+
+## 11. Audit
+
+### GET /api/v1/audit/logs
+
+Query audit logs.
+
+| Param | Type | Description |
+|---|---|---|
+| `entity_type` | string | product, contract, reservation, etc. |
+| `entity_id` | integer | Specific entity ID |
+| `action` | string | CREATE, UPDATE, DELETE, STATE_CHANGE |
+| `from` | datetime | Start date |
+| `to` | datetime | End date |
+| `user_id` | string | Filter by user |
+| `page` | integer | Page number |
+| `size` | integer | Page size |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 5001,
+      "entity_type": "contract",
+      "entity_id": 1001,
+      "action": "STATE_CHANGE",
+      "old_data": {"status": "DRAFT"},
+      "new_data": {"status": "ACTIVE"},
+      "user_id": "user-123",
+      "ip": "192.168.1.10",
+      "created_at": "2026-02-09T14:30:00Z"
+    }
+  ],
+  "total": 250,
+  "page": 1,
+  "size": 20
+}
+```
+
+### GET /api/v1/audit/state-transitions
+
+Query state transitions for an entity.
+
+### GET /api/v1/audit/events
+
+Query domain events (Event Sourcing).
+
+---
+
 ## Error Responses
 
 All errors follow a consistent format:

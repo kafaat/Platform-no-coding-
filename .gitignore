@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Credentials & Secrets
+*.pem
+*.key
+*.cert
+credentials.json
+secrets.yaml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+*.egg-info/
+target/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.dump
+*.sql.gz
+*.backup
+
+# Docker
+docker-compose.override.yml
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Coverage & Testing
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+.nyc_output/
+
+# Temporary
+tmp/
+temp/
+*.tmp

@@ -667,6 +667,49 @@ CREATE INDEX idx_event_aggregate ON domain_event(aggregate_type, aggregate_id, c
 COMMENT ON TABLE domain_event IS 'أحداث النطاق — Event Sourcing للعقود المالية';
 
 -- ============================================================
+-- 19.5 SNAPSHOTS (Operational snapshots for audit/performance)
+-- ============================================================
+
+-- FR-063: Pricing snapshot at transaction time
+CREATE TABLE pricing_snapshot (
+  id              BIGSERIAL PRIMARY KEY,
+  tenant_id       BIGINT NOT NULL REFERENCES tenant(id),
+  product_id      BIGINT NOT NULL REFERENCES product(id),
+  channel_code    TEXT,
+  currency        TEXT NOT NULL,
+  base_price      NUMERIC(18,2) NOT NULL,
+  discount        NUMERIC(18,2) DEFAULT 0,
+  tax             NUMERIC(18,2) DEFAULT 0,
+  total           NUMERIC(18,2) NOT NULL,
+  rules_applied   JSONB DEFAULT '[]',
+  context_ref     TEXT,
+  context_type    TEXT CHECK (context_type IN ('CONTRACT','RESERVATION','ORDER','INVOICE')),
+  snapshot_at     TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_pricing_snap_ref ON pricing_snapshot(context_type, context_ref);
+CREATE INDEX idx_pricing_snap_product ON pricing_snapshot(product_id, snapshot_at);
+
+COMMENT ON TABLE pricing_snapshot IS 'FR-063: لقطة تسعيرية وقت العملية للتدقيق';
+
+-- -----------------------------------------------------------
+
+-- FR-023: Attribute snapshot at transaction time
+CREATE TABLE attribute_snapshot (
+  id              BIGSERIAL PRIMARY KEY,
+  tenant_id       BIGINT NOT NULL REFERENCES tenant(id),
+  product_id      BIGINT NOT NULL REFERENCES product(id),
+  attributes      JSONB NOT NULL,
+  context_ref     TEXT,
+  context_type    TEXT CHECK (context_type IN ('CONTRACT','RESERVATION','ORDER','INVOICE')),
+  snapshot_at     TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_attr_snap_ref ON attribute_snapshot(context_type, context_ref);
+
+COMMENT ON TABLE attribute_snapshot IS 'FR-023: لقطة سمات المنتج وقت العملية للتدقيق';
+
+-- ============================================================
 -- 20. TRIGGERS (Business Rules)
 -- ============================================================
 
@@ -706,6 +749,47 @@ CREATE TRIGGER trg_product_updated_at
   BEFORE UPDATE ON product
   FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
 
+-- BR-09: Prevent deleting categories with active products
+CREATE OR REPLACE FUNCTION fn_prevent_category_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM product
+    WHERE category_id = OLD.id
+      AND status IN ('ACTIVE','SUSPENDED')
+  ) THEN
+    RAISE EXCEPTION 'Cannot delete category id=% — it has active products. Disable it instead.', OLD.id;
+  END IF;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_prevent_category_delete
+  BEFORE DELETE ON product_category
+  FOR EACH ROW EXECUTE FUNCTION fn_prevent_category_delete();
+
+COMMENT ON FUNCTION fn_prevent_category_delete IS 'BR-09: منع حذف فئة تحتوي منتجات نشطة';
+
+-- BR-10: Auto-expire HOLD reservations past TTL
+-- Note: This function should be called periodically via pg_cron or application scheduler
+CREATE OR REPLACE FUNCTION fn_expire_held_reservations()
+RETURNS INTEGER AS $$
+DECLARE
+  expired_count INTEGER;
+BEGIN
+  UPDATE reservation
+  SET status = 'EXPIRED'
+  WHERE status = 'HOLD'
+    AND hold_until IS NOT NULL
+    AND hold_until < now();
+
+  GET DIAGNOSTICS expired_count = ROW_COUNT;
+  RETURN expired_count;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION fn_expire_held_reservations IS 'BR-10: انتهاء الحجوزات المؤقتة بعد TTL — يُستدعى دورياً';
+
 -- ============================================================
 -- 21. ROW LEVEL SECURITY (Multi-tenancy)
 -- ============================================================
@@ -730,6 +814,8 @@ ALTER TABLE numbering_scheme ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE state_transition ENABLE ROW LEVEL SECURITY;
 ALTER TABLE domain_event ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pricing_snapshot ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attribute_snapshot ENABLE ROW LEVEL SECURITY;
 
 -- Create tenant isolation policies (FR-160, BR-12)
 -- Uses app.current_tenant session variable set by the application layer
@@ -771,3 +857,36 @@ CREATE POLICY tenant_isolation ON state_transition
   USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
 CREATE POLICY tenant_isolation ON domain_event
   USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON pricing_snapshot
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON attribute_snapshot
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+
+-- ============================================================
+-- 22. PARTITIONING (Performance — NFR-01, NFR-02)
+-- ============================================================
+
+-- For production deployment, partition these high-volume tables:
+--
+-- audit_log: PARTITION BY RANGE (created_at)
+--   — Yearly partitions for 7-year retention (NFR-07)
+--
+-- domain_event: PARTITION BY RANGE (created_at)
+--   — Monthly partitions for event sourcing replay performance
+--
+-- installment: PARTITION BY RANGE (due_on)
+--   — Quarterly partitions for financial reporting
+--
+-- payment_event: PARTITION BY RANGE (paid_on)
+--   — Monthly partitions
+--
+-- subledger_entry: PARTITION BY RANGE (posted_at)
+--   — Monthly partitions for IFRS 9 reconciliation
+--
+-- Example:
+-- CREATE TABLE audit_log (
+--   ...
+-- ) PARTITION BY RANGE (created_at);
+--
+-- CREATE TABLE audit_log_2026 PARTITION OF audit_log
+--   FOR VALUES FROM ('2026-01-01') TO ('2027-01-01');
