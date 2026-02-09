@@ -32,18 +32,27 @@ Platform-no-coding-/
 ├── CLAUDE.md                          # AI assistant guidance (this file)
 ├── README.md                          # Project overview
 ├── .gitignore                         # Git ignore rules
+├── .env.example                       # Environment variables template
+├── docker-compose.yml                 # Development environment (PG+Redis+Kafka)
+├── Makefile                           # Development workflow commands
 ├── db/
-│   ├── schema.sql                     # Full DDL — PostgreSQL 15+ (45+ tables)
+│   ├── schema.sql                     # Full DDL + views + procedures (PostgreSQL 15+)
 │   └── seed.sql                       # Reference/seed data for initial setup
 └── docs/
     ├── SRS-v2.0.md                    # Complete SRS document (15 use cases)
     ├── api-specification.md           # REST API specification (all endpoints)
     ├── interest-calculation.md        # Interest formulas & day count conventions
+    ├── domain-events.md               # Domain events catalog with payload schemas
+    ├── security.md                    # Security & compliance (OWASP, RBAC, encryption)
+    ├── notification-templates.md      # Bilingual notification templates (SMS/Email/Push)
     └── uml/
         ├── use-case.puml              # Use case diagram
         ├── class-diagram.puml         # Core class diagram
         ├── sequence-contract.puml     # Loan contract creation sequence
+        ├── sequence-reservation.puml  # Reservation flow sequence
         ├── state-contract.puml        # Contract state machine
+        ├── state-product.puml         # Product lifecycle state machine
+        ├── state-reservation.puml     # Reservation state machine
         ├── activity-reservation.puml  # Reservation lifecycle activity
         ├── activity-product.puml      # Product activation lifecycle
         ├── activity-loan.puml         # Loan contract lifecycle
@@ -109,6 +118,17 @@ The full DDL is in `db/schema.sql`. Key entity groups:
 12. **Reservations**: `reservation`, `cancellation_policy`
 13. **Audit**: `audit_log`, `state_transition`, `domain_event`
 14. **Snapshots**: `pricing_snapshot`, `attribute_snapshot` (point-in-time capture)
+15. **CQRS Views**: `mv_product_catalog`, `mv_contract_portfolio`, `mv_aging_report`, `mv_revenue_summary`
+
+### Stored Procedures
+
+| Function | Purpose |
+|---|---|
+| `fn_generate_installments()` | Generate installment schedule (Flat/Reducing) |
+| `fn_process_payment()` | Process payment with allocation & sub-ledger |
+| `fn_update_aging_buckets()` | Update aging and apply penalties (scheduler) |
+| `fn_calculate_early_settlement()` | Calculate early settlement amount |
+| `fn_refresh_materialized_views()` | Refresh all CQRS read models |
 
 ### Key Constraints & Rules
 
@@ -169,6 +189,16 @@ Full spec in `docs/api-specification.md`.
 | BR-12 | Tenant data isolation — no cross-tenant access |
 
 ## Development Workflow
+
+### Quick Start
+
+```bash
+cp .env.example .env         # Configure environment
+make up                      # Start PostgreSQL + Redis + Kafka
+make db-shell                # Connect to database
+make logs                    # View service logs
+make down                    # Stop services
+```
 
 ### Git
 
@@ -240,7 +270,10 @@ Full spec in `docs/api-specification.md`.
 
 - [SRS V2.0](docs/SRS-v2.0.md) — Complete requirements specification (15 use cases)
 - [API Specification](docs/api-specification.md) — REST API details (all resource endpoints)
-- [Database Schema](db/schema.sql) — Full PostgreSQL DDL (45+ tables)
+- [Database Schema](db/schema.sql) — Full PostgreSQL DDL (45+ tables, views, procedures)
 - [Seed Data](db/seed.sql) — Reference data for initial setup
 - [Interest Calculation](docs/interest-calculation.md) — Formulas, day count conventions, penalties
-- [UML Diagrams](docs/uml/) — PlantUML source files (9 diagrams)
+- [Domain Events](docs/domain-events.md) — Event catalog with payload schemas & Kafka topics
+- [Security & Compliance](docs/security.md) — OWASP, RBAC/ABAC, encryption, audit
+- [Notification Templates](docs/notification-templates.md) — Bilingual SMS/Email/Push templates
+- [UML Diagrams](docs/uml/) — PlantUML source files (12 diagrams)

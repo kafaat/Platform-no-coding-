@@ -24,6 +24,14 @@ A no-code platform foundation for managing dynamic products across multiple type
 - **Security**: OAuth2/OIDC, RBAC/ABAC, AES-256 PII encryption
 - **Observability**: OpenTelemetry, Grafana
 
+### Quick Start
+
+```bash
+cp .env.example .env         # Configure environment
+make up                      # Start PostgreSQL + Redis + Kafka
+make db-shell                # Connect to database
+```
+
 ### Documentation
 
 | Document | Description |
@@ -31,10 +39,13 @@ A no-code platform foundation for managing dynamic products across multiple type
 | [CLAUDE.md](CLAUDE.md) | AI assistant guidance |
 | [SRS V2.0](docs/SRS-v2.0.md) | Full requirements specification (15 use cases) |
 | [API Spec](docs/api-specification.md) | REST API endpoints (all resources) |
-| [Schema DDL](db/schema.sql) | PostgreSQL database schema (45+ tables) |
+| [Schema DDL](db/schema.sql) | PostgreSQL DDL + CQRS views + stored procedures |
 | [Seed Data](db/seed.sql) | Reference data for initial setup |
 | [Interest Calculation](docs/interest-calculation.md) | Formulas, day count conventions, penalties |
-| [UML Diagrams](docs/uml/) | PlantUML architecture diagrams (9 diagrams) |
+| [Domain Events](docs/domain-events.md) | Event catalog with Kafka topics & payload schemas |
+| [Security](docs/security.md) | OWASP, RBAC/ABAC, encryption, compliance |
+| [Notifications](docs/notification-templates.md) | Bilingual SMS/Email/Push templates |
+| [UML Diagrams](docs/uml/) | PlantUML architecture diagrams (12 diagrams) |
 
 ### Roadmap
 
