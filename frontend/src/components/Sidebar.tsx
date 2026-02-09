@@ -38,16 +38,17 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: "dashboard", label: "لوحة التحكم", icon: <LayoutDashboard size={20} />, section: "main" },
-  { id: "categories", label: "التصنيفات", icon: <FolderTree size={20} />, section: "products" },
+  { id: "categories", label: "الفئات", icon: <FolderTree size={20} />, section: "products" },
   { id: "products", label: "المنتجات", icon: <Package size={20} />, section: "products" },
-  { id: "manufacturing", label: "التصنيع", icon: <Factory size={20} />, section: "products" },
-  { id: "traceability", label: "التتبع", icon: <Scan size={20} />, section: "products" },
+  { id: "product-editor", label: "محرر المنتج", icon: <ClipboardList size={20} />, section: "products" },
+  { id: "manufacturing", label: "التصنيع وMRP", icon: <Factory size={20} />, section: "products" },
+  { id: "traceability", label: "التتبع وSerial/Lot", icon: <Scan size={20} />, section: "products" },
   { id: "pricing", label: "التسعير", icon: <DollarSign size={20} />, section: "config" },
   { id: "numbering", label: "الترقيم", icon: <Hash size={20} />, section: "config" },
-  { id: "channels", label: "القنوات", icon: <Radio size={20} />, section: "config" },
-  { id: "contracts", label: "العقود المالية", icon: <FileText size={20} />, section: "finance" },
+  { id: "channels", label: "قنوات التوزيع", icon: <Radio size={20} />, section: "config" },
+  { id: "contracts", label: "العقود المالية", icon: <FileText size={20} />, section: "finance", badge: 3 },
   { id: "customers", label: "العملاء", icon: <Users size={20} />, section: "finance" },
-  { id: "reservations", label: "الحجوزات", icon: <CalendarRange size={20} />, section: "operations" },
+  { id: "reservations", label: "الحجوزات", icon: <CalendarRange size={20} />, section: "operations", badge: 2 },
   { id: "audit", label: "سجل التدقيق", icon: <Shield size={20} />, section: "operations" },
   { id: "reports", label: "التقارير", icon: <BarChart3 size={20} />, section: "operations" },
 ];

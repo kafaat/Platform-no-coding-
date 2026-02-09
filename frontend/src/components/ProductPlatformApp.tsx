@@ -35,11 +35,11 @@ export default function ProductPlatformApp() {
   const renderScreen = () => {
     switch (activeScreen) {
       case "dashboard":
-        return <DashboardScreen />;
+        return <DashboardScreen onNavigate={handleNavigate} />;
       case "categories":
         return <CategoriesScreen />;
       case "products":
-        return <ProductsScreen />;
+        return <ProductsScreen onNavigate={handleNavigate} />;
       case "product-editor":
         return <ProductEditorScreen onBack={() => setActiveScreen("products")} />;
       case "manufacturing":
@@ -63,7 +63,7 @@ export default function ProductPlatformApp() {
       case "reports":
         return <ReportsScreen />;
       default:
-        return <DashboardScreen />;
+        return <DashboardScreen onNavigate={handleNavigate} />;
     }
   };
 
