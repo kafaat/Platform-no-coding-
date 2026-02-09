@@ -161,7 +161,7 @@ The full DDL is in `db/schema.sql`. Key entity groups:
 
 ## API Conventions
 
-Full spec in `docs/api-specification.md`.
+Full spec in `docs/api-specification.md` and `docs/openapi.yaml`.
 
 ### Required Headers
 

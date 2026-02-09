@@ -205,6 +205,80 @@ Create a new price list.
 }
 ```
 
+### GET /api/v1/pricing/price-lists/{id}
+
+Get a single price list with its product entries.
+
+**Response:** `200 OK`
+```json
+{
+  "id": 10,
+  "name": "قائمة أسعار التجزئة",
+  "currency": "YER",
+  "valid_from": "2026-01-01",
+  "valid_to": "2026-12-31",
+  "products": [
+    {
+      "product_id": 123,
+      "price": 1000.00,
+      "min_qty": 1,
+      "max_qty": null
+    }
+  ],
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-15T10:30:00Z"
+}
+```
+
+### PUT /api/v1/pricing/price-lists/{id}
+
+Update a price list.
+
+**Request Body:**
+```json
+{
+  "name": "قائمة أسعار التجزئة - محدثة",
+  "currency": "YER",
+  "valid_from": "2026-01-01",
+  "valid_to": "2027-06-30"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 10,
+  "name": "قائمة أسعار التجزئة - محدثة",
+  "currency": "YER",
+  "valid_from": "2026-01-01",
+  "valid_to": "2027-06-30",
+  "updated_at": "2026-02-09T12:00:00Z"
+}
+```
+
+### DELETE /api/v1/pricing/price-lists/{id}
+
+Delete a price list. Fails if the price list is currently linked to active product channels (BR-02).
+
+**Response:** `204 No Content`
+
+**Error Response:** `409 Conflict`
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Cannot delete price list linked to active product channels",
+    "details": [
+      {
+        "field": "price_list_id",
+        "reason": "Price list 10 is linked to 3 active product channels"
+      }
+    ],
+    "request_id": "req-abc-456"
+  }
+}
+```
+
 ---
 
 ## 3. Numbering
@@ -231,6 +305,100 @@ Reserve a sequential number.
   "scheme_code": "CONTRACT_NUM",
   "sequence_value": 1234,
   "reserved_until": "2026-02-09T13:00:00Z"
+}
+```
+
+### GET /api/v1/numbering/schemes
+
+List all numbering schemes.
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `entity_type` | string | Filter by entity type (e.g., CONTRACT, PRODUCT, RESERVATION) |
+| `is_active` | boolean | Filter by active status |
+| `page` | integer | Page number (default: 1) |
+| `size` | integer | Page size (default: 20, max: 100) |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "code": "CONTRACT_NUM",
+      "name_ar": "ترقيم العقود",
+      "name_en": "Contract Numbering",
+      "pattern": "FIN-LOAN-{YYYY}-{SEQ:6}",
+      "entity_type": "CONTRACT",
+      "is_active": true,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "total": 5,
+  "page": 1,
+  "size": 20
+}
+```
+
+### GET /api/v1/numbering/schemes/{id}
+
+Get a numbering scheme with its current sequences.
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "code": "CONTRACT_NUM",
+  "name_ar": "ترقيم العقود",
+  "name_en": "Contract Numbering",
+  "pattern": "FIN-LOAN-{YYYY}-{SEQ:6}",
+  "entity_type": "CONTRACT",
+  "is_active": true,
+  "sequences": [
+    {
+      "id": 10,
+      "period_key": "2026",
+      "current_value": 1234,
+      "max_value": 999999,
+      "updated_at": "2026-02-09T12:00:00Z"
+    }
+  ],
+  "created_at": "2026-01-01T00:00:00Z"
+}
+```
+
+### GET /api/v1/numbering/sequences
+
+List numbering sequences with current values.
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `scheme_id` | integer | Filter by numbering scheme |
+| `period_key` | string | Filter by period (e.g., "2026") |
+| `page` | integer | Page number (default: 1) |
+| `size` | integer | Page size (default: 20, max: 100) |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 10,
+      "scheme_id": 1,
+      "scheme_code": "CONTRACT_NUM",
+      "period_key": "2026",
+      "current_value": 1234,
+      "max_value": 999999,
+      "updated_at": "2026-02-09T12:00:00Z"
+    }
+  ],
+  "total": 12,
+  "page": 1,
+  "size": 20
 }
 ```
 
@@ -369,6 +537,107 @@ Get account statement.
 }
 ```
 
+### GET /api/v1/contracts/{id}/early-settlement
+
+Preview early settlement amount without executing (read-only).
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `settlement_date` | date | Settlement calculation date (ISO 8601, default: today) |
+
+**Response:** `200 OK`
+```json
+{
+  "contract_id": 1001,
+  "contract_number": "FIN-LOAN-2026-001234",
+  "settlement_date": "2026-03-01",
+  "outstanding_principal": 375000.00,
+  "accrued_interest": 3125.00,
+  "settlement_fee": 1875.00,
+  "total_settlement": 380000.00,
+  "currency": "YER"
+}
+```
+
+### POST /api/v1/contracts/{id}/early-settlement
+
+Calculate and execute early settlement. Closes the contract and generates subledger entries.
+
+**Required Headers:**
+
+| Header | Required | Description |
+|---|---|---|
+| `Authorization` | Yes | `Bearer <token>` |
+| `X-Tenant-ID` | Yes | Tenant identifier |
+| `X-Idempotency-Key` | Yes | Unique key to prevent duplicate settlements |
+
+**Request Body:**
+```json
+{
+  "settlement_date": "2026-03-01",
+  "channel": "BRANCH",
+  "idempotency_key": "es-1001-20260301"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "contract_id": 1001,
+  "contract_number": "FIN-LOAN-2026-001234",
+  "settlement_date": "2026-03-01",
+  "outstanding_principal": 375000.00,
+  "accrued_interest": 3125.00,
+  "settlement_fee": 1875.00,
+  "total_settlement": 380000.00,
+  "currency": "YER",
+  "contract_status": "CLOSED",
+  "subledger_entries": [
+    {
+      "event_type": "EARLY_SETTLEMENT",
+      "dr_account": "1001-CASH",
+      "cr_account": "1201-LOAN_RECEIVABLE",
+      "amount": 375000.00,
+      "description": "Early settlement — principal"
+    },
+    {
+      "event_type": "EARLY_SETTLEMENT",
+      "dr_account": "1001-CASH",
+      "cr_account": "4101-INTEREST_INCOME",
+      "amount": 3125.00,
+      "description": "Early settlement — accrued interest"
+    },
+    {
+      "event_type": "EARLY_SETTLEMENT",
+      "dr_account": "1001-CASH",
+      "cr_account": "4201-FEE_INCOME",
+      "amount": 1875.00,
+      "description": "Early settlement — fee"
+    }
+  ],
+  "closed_at": "2026-03-01T10:00:00Z"
+}
+```
+
+**Error Response:** `422 Unprocessable Entity`
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Contract is not eligible for early settlement",
+    "details": [
+      {
+        "field": "status",
+        "reason": "Contract status must be ACTIVE or IN_ARREARS, current status: CLOSED"
+      }
+    ],
+    "request_id": "req-es-789"
+  }
+}
+```
+
 ---
 
 ## 5. Reservations
@@ -463,6 +732,90 @@ Cancel a reservation.
 }
 ```
 
+### GET /api/v1/reservations
+
+List reservations with filters.
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `product_id` | integer | Filter by product |
+| `customer_id` | integer | Filter by customer |
+| `status` | string | Filter by status: HOLD, CONFIRMED, EXPIRED, CANCELLED, COMPLETED |
+| `from` | datetime | Start of period (ISO 8601) |
+| `to` | datetime | End of period (ISO 8601) |
+| `page` | integer | Page number (default: 1) |
+| `size` | integer | Page size (default: 20, max: 100) |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 3001,
+      "product_id": 75,
+      "customer_id": 200,
+      "status": "CONFIRMED",
+      "slot_from": "2026-03-01T09:00:00Z",
+      "slot_to": "2026-03-01T12:00:00Z",
+      "payment_ref": "PAY-2026-XYZ",
+      "created_at": "2026-02-09T12:00:00Z"
+    },
+    {
+      "id": 3002,
+      "product_id": 75,
+      "customer_id": 201,
+      "status": "HOLD",
+      "slot_from": "2026-03-02T14:00:00Z",
+      "slot_to": "2026-03-02T17:00:00Z",
+      "hold_until": "2026-02-09T13:15:00Z",
+      "created_at": "2026-02-09T12:30:00Z"
+    }
+  ],
+  "total": 42,
+  "page": 1,
+  "size": 20
+}
+```
+
+### GET /api/v1/reservations/{id}
+
+Get a single reservation with full details.
+
+**Response:** `200 OK`
+```json
+{
+  "id": 3001,
+  "tenant_id": 1,
+  "product_id": 75,
+  "customer_id": 200,
+  "status": "CONFIRMED",
+  "slot_from": "2026-03-01T09:00:00Z",
+  "slot_to": "2026-03-01T12:00:00Z",
+  "hold_until": null,
+  "payment_ref": "PAY-2026-XYZ",
+  "cancellation_policy": {
+    "id": 5,
+    "name_en": "Standard Policy",
+    "penalty_type": "PERCENT",
+    "penalty_value": 10.00,
+    "free_cancel_hours": 24
+  },
+  "product": {
+    "id": 75,
+    "name_ar": "قاعة اجتماعات أ",
+    "name_en": "Meeting Room A"
+  },
+  "customer": {
+    "id": 200,
+    "name_en": "Ahmed Mohammed"
+  },
+  "created_at": "2026-02-09T12:00:00Z",
+  "updated_at": "2026-02-09T12:30:00Z"
+}
+```
+
 ---
 
 ## 6. Categories
@@ -526,6 +879,35 @@ List categories as tree.
 }
 ```
 
+### GET /api/v1/categories/{id}
+
+Get a single category with its children and parent chain.
+
+**Response:** `200 OK`
+```json
+{
+  "id": 2,
+  "parent_id": 1,
+  "name_ar": "قروض",
+  "name_en": "Loans",
+  "type": "FINANCIAL",
+  "is_active": true,
+  "default_policies": {
+    "channels": ["WEB", "MOBILE", "BRANCH"],
+    "tax_rate": 0.00
+  },
+  "parent": {
+    "id": 1,
+    "name_ar": "المنتجات المالية",
+    "name_en": "Financial Products"
+  },
+  "children": [],
+  "product_count": 12,
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-15T10:00:00Z"
+}
+```
+
 ### PUT /api/v1/categories/{id}
 
 Update a category.
@@ -563,6 +945,89 @@ Create an attribute definition.
 
 List attribute definitions with filters.
 
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `datatype` | string | Filter by datatype: TEXT, NUMBER, DATE, BOOLEAN, ENUM, JSON |
+| `required` | boolean | Filter by required flag |
+| `search` | string | Search by code or label |
+| `page` | integer | Page number (default: 1) |
+| `size` | integer | Page size (default: 20, max: 100) |
+
+### GET /api/v1/attributes/definitions/{id}
+
+Get a single attribute definition.
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "code": "COLOR",
+  "label_ar": "اللون",
+  "label_en": "Color",
+  "datatype": "ENUM",
+  "required": false,
+  "validation": {"allowed": ["RED", "BLUE", "GREEN"]},
+  "json_schema": null,
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z"
+}
+```
+
+### PUT /api/v1/attributes/definitions/{id}
+
+Update an attribute definition.
+
+**Request Body:**
+```json
+{
+  "code": "COLOR",
+  "label_ar": "اللون",
+  "label_en": "Color",
+  "datatype": "ENUM",
+  "required": true,
+  "validation": {"allowed": ["RED", "BLUE", "GREEN", "BLACK", "WHITE"]}
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "code": "COLOR",
+  "label_ar": "اللون",
+  "label_en": "Color",
+  "datatype": "ENUM",
+  "required": true,
+  "validation": {"allowed": ["RED", "BLUE", "GREEN", "BLACK", "WHITE"]},
+  "updated_at": "2026-02-09T12:00:00Z"
+}
+```
+
+### DELETE /api/v1/attributes/definitions/{id}
+
+Delete an attribute definition. Fails if the attribute is currently assigned to any attribute set.
+
+**Response:** `204 No Content`
+
+**Error Response:** `409 Conflict`
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Cannot delete attribute definition in use",
+    "details": [
+      {
+        "field": "attribute_id",
+        "reason": "Attribute 1 is assigned to 2 attribute sets"
+      }
+    ],
+    "request_id": "req-attr-123"
+  }
+}
+```
+
 ### POST /api/v1/attributes/sets
 
 Create an attribute set.
@@ -576,6 +1041,144 @@ Create an attribute set.
     {"attribute_id": 1, "sort_order": 0},
     {"attribute_id": 2, "sort_order": 1}
   ]
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "id": 10,
+  "name": "Electronics Attributes",
+  "description": "Common attributes for electronics",
+  "attributes": [
+    {"attribute_id": 1, "sort_order": 0},
+    {"attribute_id": 2, "sort_order": 1}
+  ],
+  "created_at": "2026-02-09T12:00:00Z"
+}
+```
+
+### GET /api/v1/attributes/sets
+
+List attribute sets.
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `search` | string | Search by name or description |
+| `page` | integer | Page number (default: 1) |
+| `size` | integer | Page size (default: 20, max: 100) |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 10,
+      "name": "Electronics Attributes",
+      "description": "Common attributes for electronics",
+      "attribute_count": 2,
+      "created_at": "2026-02-09T12:00:00Z"
+    }
+  ],
+  "total": 8,
+  "page": 1,
+  "size": 20
+}
+```
+
+### GET /api/v1/attributes/sets/{id}
+
+Get a single attribute set with its attribute definitions.
+
+**Response:** `200 OK`
+```json
+{
+  "id": 10,
+  "name": "Electronics Attributes",
+  "description": "Common attributes for electronics",
+  "attributes": [
+    {
+      "attribute_id": 1,
+      "sort_order": 0,
+      "definition": {
+        "code": "COLOR",
+        "label_ar": "اللون",
+        "label_en": "Color",
+        "datatype": "ENUM",
+        "required": false
+      }
+    },
+    {
+      "attribute_id": 2,
+      "sort_order": 1,
+      "definition": {
+        "code": "STORAGE_GB",
+        "label_ar": "سعة التخزين",
+        "label_en": "Storage (GB)",
+        "datatype": "NUMBER",
+        "required": true
+      }
+    }
+  ],
+  "created_at": "2026-02-09T12:00:00Z",
+  "updated_at": "2026-02-09T12:00:00Z"
+}
+```
+
+### PUT /api/v1/attributes/sets/{id}
+
+Update an attribute set.
+
+**Request Body:**
+```json
+{
+  "name": "Electronics Attributes V2",
+  "description": "Updated attributes for electronics",
+  "attributes": [
+    {"attribute_id": 1, "sort_order": 0},
+    {"attribute_id": 2, "sort_order": 1},
+    {"attribute_id": 5, "sort_order": 2}
+  ]
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 10,
+  "name": "Electronics Attributes V2",
+  "description": "Updated attributes for electronics",
+  "attributes": [
+    {"attribute_id": 1, "sort_order": 0},
+    {"attribute_id": 2, "sort_order": 1},
+    {"attribute_id": 5, "sort_order": 2}
+  ],
+  "updated_at": "2026-02-09T14:00:00Z"
+}
+```
+
+### DELETE /api/v1/attributes/sets/{id}
+
+Delete an attribute set. Fails if the set is currently linked to any product.
+
+**Response:** `204 No Content`
+
+**Error Response:** `409 Conflict`
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Cannot delete attribute set in use",
+    "details": [
+      {
+        "field": "attribute_set_id",
+        "reason": "Attribute set 10 is linked to 5 products"
+      }
+    ],
+    "request_id": "req-attrset-456"
+  }
 }
 ```
 
@@ -614,6 +1217,77 @@ List all available channels.
     {"id": 5, "code": "USSD", "name_ar": "خدمة USSD", "name_en": "USSD Service"},
     {"id": 6, "code": "IVR", "name_ar": "الرد الصوتي", "name_en": "IVR"}
   ]
+}
+```
+
+### POST /api/v1/channels
+
+Create a new channel.
+
+**Request Body:**
+```json
+{
+  "code": "KIOSK",
+  "name_ar": "كشك الخدمة الذاتية",
+  "name_en": "Self-Service Kiosk"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "id": 7,
+  "code": "KIOSK",
+  "name_ar": "كشك الخدمة الذاتية",
+  "name_en": "Self-Service Kiosk",
+  "created_at": "2026-02-09T12:00:00Z"
+}
+```
+
+### PUT /api/v1/channels/{id}
+
+Update a channel.
+
+**Request Body:**
+```json
+{
+  "code": "KIOSK",
+  "name_ar": "كشك الخدمة الذاتية - محدث",
+  "name_en": "Self-Service Kiosk (Updated)"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 7,
+  "code": "KIOSK",
+  "name_ar": "كشك الخدمة الذاتية - محدث",
+  "name_en": "Self-Service Kiosk (Updated)",
+  "updated_at": "2026-02-09T14:00:00Z"
+}
+```
+
+### DELETE /api/v1/channels/{id}
+
+Delete a channel. Fails if the channel is currently linked to active products.
+
+**Response:** `204 No Content`
+
+**Error Response:** `409 Conflict`
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Cannot delete channel linked to active products",
+    "details": [
+      {
+        "field": "channel_id",
+        "reason": "Channel 7 is linked to 3 active products"
+      }
+    ],
+    "request_id": "req-ch-789"
+  }
 }
 ```
 
@@ -672,6 +1346,84 @@ List charges with filters.
 | `page` | integer | Page number |
 | `size` | integer | Page size |
 
+### GET /api/v1/charges/{id}
+
+Get a single charge/fee/penalty definition.
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "code": "LATE_FEE",
+  "name": "غرامة تأخير",
+  "kind": "FINE",
+  "basis": "PERCENT",
+  "value": 2.5,
+  "per": "MONTH",
+  "when_event": "OnLate",
+  "params": {"grace_days": 7, "max_amount": 10000},
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-01-01T00:00:00Z"
+}
+```
+
+### PUT /api/v1/charges/{id}
+
+Update a charge/fee/penalty definition.
+
+**Request Body:**
+```json
+{
+  "code": "LATE_FEE",
+  "name": "غرامة تأخير - محدثة",
+  "kind": "FINE",
+  "basis": "PERCENT",
+  "value": 3.0,
+  "per": "MONTH",
+  "when_event": "OnLate",
+  "params": {"grace_days": 5, "max_amount": 15000}
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "code": "LATE_FEE",
+  "name": "غرامة تأخير - محدثة",
+  "kind": "FINE",
+  "basis": "PERCENT",
+  "value": 3.0,
+  "per": "MONTH",
+  "when_event": "OnLate",
+  "params": {"grace_days": 5, "max_amount": 15000},
+  "updated_at": "2026-02-09T12:00:00Z"
+}
+```
+
+### DELETE /api/v1/charges/{id}
+
+Delete a charge definition. Fails if the charge is currently linked to any product.
+
+**Response:** `204 No Content`
+
+**Error Response:** `409 Conflict`
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Cannot delete charge linked to products",
+    "details": [
+      {
+        "field": "charge_id",
+        "reason": "Charge 1 is linked to 4 products"
+      }
+    ],
+    "request_id": "req-chg-101"
+  }
+}
+```
+
 ---
 
 ## 10. Customers
@@ -722,6 +1474,38 @@ Get customer details.
 
 Update customer information.
 
+### DELETE /api/v1/customers/{id}
+
+Soft delete (deactivate) a customer. The customer record is retained for audit and compliance purposes but marked as inactive. Active contracts or reservations will block deactivation.
+
+**Response:** `200 OK`
+```json
+{
+  "id": 200,
+  "code": "CUST-001",
+  "name_en": "Ahmed Mohammed",
+  "is_active": false,
+  "deactivated_at": "2026-02-09T12:00:00Z"
+}
+```
+
+**Error Response:** `409 Conflict`
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Cannot deactivate customer with active obligations",
+    "details": [
+      {
+        "field": "customer_id",
+        "reason": "Customer 200 has 2 active contracts and 1 confirmed reservation"
+      }
+    ],
+    "request_id": "req-cust-del-200"
+  }
+}
+```
+
 ---
 
 ## 11. Audit
@@ -770,6 +1554,356 @@ Query state transitions for an entity.
 ### GET /api/v1/audit/events
 
 Query domain events (Event Sourcing).
+
+---
+
+## 12. Accounting
+
+### POST /api/v1/accounting/templates
+
+Create an accounting template that defines debit/credit entries for a specific event type.
+
+**Required Headers:**
+
+| Header | Required | Description |
+|---|---|---|
+| `Authorization` | Yes | `Bearer <token>` |
+| `X-Tenant-ID` | Yes | Tenant identifier |
+| `X-Idempotency-Key` | Yes | Unique key to prevent duplicate creation |
+
+**Request Body:**
+```json
+{
+  "tenant_id": 1,
+  "name": "قالب محاسبة المبيعات",
+  "event": "SALE",
+  "entries": [
+    {
+      "dr": "1201-ACCOUNTS_RECEIVABLE",
+      "cr": "4101-SALES_REVENUE",
+      "description": "Revenue recognition on sale"
+    },
+    {
+      "dr": "5101-COST_OF_GOODS_SOLD",
+      "cr": "1301-INVENTORY",
+      "description": "Cost of goods sold"
+    }
+  ]
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "id": 1,
+  "tenant_id": 1,
+  "name": "قالب محاسبة المبيعات",
+  "event": "SALE",
+  "entries": [
+    {
+      "seq": 1,
+      "dr": "1201-ACCOUNTS_RECEIVABLE",
+      "cr": "4101-SALES_REVENUE",
+      "description": "Revenue recognition on sale"
+    },
+    {
+      "seq": 2,
+      "dr": "5101-COST_OF_GOODS_SOLD",
+      "cr": "1301-INVENTORY",
+      "description": "Cost of goods sold"
+    }
+  ],
+  "created_at": "2026-02-09T12:00:00Z"
+}
+```
+
+**Supported Event Types:**
+
+| Event | Description |
+|---|---|
+| `SALE` | Product sale transaction |
+| `RETURN` | Product return/refund |
+| `DISBURSEMENT` | Loan disbursement |
+| `PRINCIPAL_PAYMENT` | Principal portion of payment |
+| `INTEREST_PAYMENT` | Interest portion of payment |
+| `FEE_COLLECTION` | Fee/charge collection |
+| `LATE_PENALTY` | Late payment penalty |
+| `WRITE_OFF` | Bad debt write-off |
+
+### GET /api/v1/accounting/templates
+
+List accounting templates with filters.
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `event` | string | Filter by event type (e.g., SALE, DISBURSEMENT) |
+| `search` | string | Search by template name |
+| `page` | integer | Page number (default: 1) |
+| `size` | integer | Page size (default: 20, max: 100) |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "قالب محاسبة المبيعات",
+      "event": "SALE",
+      "entry_count": 2,
+      "created_at": "2026-02-09T12:00:00Z"
+    },
+    {
+      "id": 2,
+      "name": "قالب صرف القرض",
+      "event": "DISBURSEMENT",
+      "entry_count": 1,
+      "created_at": "2026-02-09T12:00:00Z"
+    }
+  ],
+  "total": 8,
+  "page": 1,
+  "size": 20
+}
+```
+
+### GET /api/v1/accounting/templates/{id}
+
+Get a single accounting template with its entries.
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "tenant_id": 1,
+  "name": "قالب محاسبة المبيعات",
+  "event": "SALE",
+  "entries": [
+    {
+      "seq": 1,
+      "dr": "1201-ACCOUNTS_RECEIVABLE",
+      "cr": "4101-SALES_REVENUE",
+      "description": "Revenue recognition on sale"
+    },
+    {
+      "seq": 2,
+      "dr": "5101-COST_OF_GOODS_SOLD",
+      "cr": "1301-INVENTORY",
+      "description": "Cost of goods sold"
+    }
+  ],
+  "created_at": "2026-02-09T12:00:00Z",
+  "updated_at": "2026-02-09T12:00:00Z"
+}
+```
+
+### PUT /api/v1/accounting/templates/{id}
+
+Update an accounting template.
+
+**Request Body:**
+```json
+{
+  "name": "قالب محاسبة المبيعات - محدث",
+  "event": "SALE",
+  "entries": [
+    {
+      "dr": "1201-ACCOUNTS_RECEIVABLE",
+      "cr": "4101-SALES_REVENUE",
+      "description": "Revenue recognition on sale"
+    },
+    {
+      "dr": "5101-COST_OF_GOODS_SOLD",
+      "cr": "1301-INVENTORY",
+      "description": "Cost of goods sold"
+    },
+    {
+      "dr": "2201-TAX_PAYABLE",
+      "cr": "1201-ACCOUNTS_RECEIVABLE",
+      "description": "Sales tax liability"
+    }
+  ]
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "tenant_id": 1,
+  "name": "قالب محاسبة المبيعات - محدث",
+  "event": "SALE",
+  "entries": [
+    {
+      "seq": 1,
+      "dr": "1201-ACCOUNTS_RECEIVABLE",
+      "cr": "4101-SALES_REVENUE",
+      "description": "Revenue recognition on sale"
+    },
+    {
+      "seq": 2,
+      "dr": "5101-COST_OF_GOODS_SOLD",
+      "cr": "1301-INVENTORY",
+      "description": "Cost of goods sold"
+    },
+    {
+      "seq": 3,
+      "dr": "2201-TAX_PAYABLE",
+      "cr": "1201-ACCOUNTS_RECEIVABLE",
+      "description": "Sales tax liability"
+    }
+  ],
+  "updated_at": "2026-02-09T14:00:00Z"
+}
+```
+
+### POST /api/v1/accounting/product-mappings
+
+Map a product to an accounting template for a specific event type.
+
+**Required Headers:**
+
+| Header | Required | Description |
+|---|---|---|
+| `Authorization` | Yes | `Bearer <token>` |
+| `X-Tenant-ID` | Yes | Tenant identifier |
+| `X-Idempotency-Key` | Yes | Unique key to prevent duplicate mappings |
+
+**Request Body:**
+```json
+{
+  "product_id": 123,
+  "template_id": 1,
+  "event_type": "SALE"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "id": 50,
+  "product_id": 123,
+  "template_id": 1,
+  "event_type": "SALE",
+  "template_name": "قالب محاسبة المبيعات",
+  "created_at": "2026-02-09T12:00:00Z"
+}
+```
+
+**Error Response:** `409 Conflict`
+```json
+{
+  "error": {
+    "code": "CONFLICT",
+    "message": "Product-event mapping already exists",
+    "details": [
+      {
+        "field": "product_id",
+        "reason": "Product 123 already has a SALE accounting template mapped"
+      }
+    ],
+    "request_id": "req-map-123"
+  }
+}
+```
+
+### GET /api/v1/accounting/product-mappings
+
+List product-accounting template mappings.
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `product_id` | integer | Filter by product |
+| `template_id` | integer | Filter by template |
+| `event_type` | string | Filter by event type |
+| `page` | integer | Page number (default: 1) |
+| `size` | integer | Page size (default: 20, max: 100) |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 50,
+      "product_id": 123,
+      "product_name_en": "Test Product",
+      "template_id": 1,
+      "template_name": "قالب محاسبة المبيعات",
+      "event_type": "SALE",
+      "created_at": "2026-02-09T12:00:00Z"
+    },
+    {
+      "id": 51,
+      "product_id": 123,
+      "product_name_en": "Test Product",
+      "template_id": 3,
+      "template_name": "قالب الإرجاع",
+      "event_type": "RETURN",
+      "created_at": "2026-02-09T12:00:00Z"
+    }
+  ],
+  "total": 2,
+  "page": 1,
+  "size": 20
+}
+```
+
+### GET /api/v1/subledger/entries
+
+Query subledger entries with filters. Subledger entries are the individual debit/credit postings generated by financial events (payments, disbursements, penalties, etc.).
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `contract_id` | integer | Filter by contract |
+| `event_type` | string | Filter by event type (e.g., PRINCIPAL_PAYMENT, INTEREST_PAYMENT, DISBURSEMENT, LATE_PENALTY, WRITE_OFF) |
+| `from` | date | Start date (ISO 8601) |
+| `to` | date | End date (ISO 8601) |
+| `dr_account` | string | Filter by debit account code |
+| `cr_account` | string | Filter by credit account code |
+| `page` | integer | Page number (default: 1) |
+| `size` | integer | Page size (default: 20, max: 100) |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 8001,
+      "contract_id": 1001,
+      "contract_number": "FIN-LOAN-2026-001234",
+      "event_type": "PRINCIPAL_PAYMENT",
+      "dr_account": "1001-CASH",
+      "cr_account": "1201-LOAN_RECEIVABLE",
+      "amount": 41666.67,
+      "currency": "YER",
+      "posted_at": "2026-02-01T10:00:00Z",
+      "ref": "PAY-9001",
+      "idempotency_key": "pay-1001-5001"
+    },
+    {
+      "id": 8002,
+      "contract_id": 1001,
+      "contract_number": "FIN-LOAN-2026-001234",
+      "event_type": "INTEREST_PAYMENT",
+      "dr_account": "1001-CASH",
+      "cr_account": "4101-INTEREST_INCOME",
+      "amount": 8333.33,
+      "currency": "YER",
+      "posted_at": "2026-02-01T10:00:00Z",
+      "ref": "PAY-9001",
+      "idempotency_key": "pay-1001-5001-int"
+    }
+  ],
+  "total": 24,
+  "page": 1,
+  "size": 20
+}
+```
 
 ---
 

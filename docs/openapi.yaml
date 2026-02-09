@@ -54,6 +54,8 @@ tags:
     description: Customer management and KYC (العملاء)
   - name: Audit
     description: Audit logs, state transitions, and domain events (التدقيق)
+  - name: Accounting
+    description: Accounting templates, product mappings, and subledger entries (المحاسبة)
 
 paths:
   # ==========================================================================
@@ -665,6 +667,100 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /pricing/price-lists/{id}:
+    get:
+      tags: [Pricing]
+      summary: Get price list details
+      description: |
+        Returns full details of a specific price list including linked products.
+        تفاصيل قائمة الأسعار.
+      operationId: getPriceList
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/PriceListIdPath'
+      responses:
+        '200':
+          description: Price list details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Pricing]
+      summary: Update a price list
+      description: |
+        Updates price list properties such as name, currency, and validity period.
+        تحديث بيانات قائمة الأسعار.
+      operationId: updatePriceList
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/PriceListIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePriceListRequest'
+      responses:
+        '200':
+          description: Price list updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Pricing]
+      summary: Delete a price list
+      description: |
+        Deletes a price list. Cannot delete if actively linked to products.
+        حذف قائمة الأسعار.
+      operationId: deletePriceList
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/PriceListIdPath'
+      responses:
+        '204':
+          description: Price list deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # ==========================================================================
   # Numbering
   # ==========================================================================
@@ -711,6 +807,118 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /numbering/schemes:
+    get:
+      tags: [Numbering]
+      summary: List numbering schemes
+      description: |
+        Returns all numbering schemes configured for the tenant.
+        قائمة مخططات الترقيم.
+      operationId: listNumberingSchemes
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: List of numbering schemes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NumberingScheme'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /numbering/schemes/{id}:
+    get:
+      tags: [Numbering]
+      summary: Get numbering scheme details
+      description: |
+        Returns details of a specific numbering scheme including pattern and gap policy.
+        تفاصيل مخطط الترقيم.
+      operationId: getNumberingScheme
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/NumberingSchemeIdPath'
+      responses:
+        '200':
+          description: Numbering scheme details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NumberingScheme'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /numbering/sequences:
+    get:
+      tags: [Numbering]
+      summary: List numbering sequences
+      description: |
+        Returns current sequence counters for all schemes, including last value and status.
+        قائمة التسلسلات الرقمية وحالتها الحالية.
+      operationId: listNumberingSequences
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: scheme_code
+          in: query
+          schema:
+            type: string
+          description: Filter by scheme code (تصفية حسب رمز المخطط)
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: List of numbering sequences
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NumberingSequence'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -1068,6 +1276,100 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /contracts/{id}/early-settlement:
+    get:
+      tags: [Contracts]
+      summary: Calculate early settlement quote
+      description: |
+        Calculates the early settlement amount for a contract including outstanding principal,
+        accrued interest, and settlement fees. Uses fn_calculate_early_settlement().
+        حساب مبلغ التسوية المبكرة للعقد.
+      operationId: getEarlySettlement
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ContractIdPath'
+        - name: settlement_date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Proposed settlement date, defaults to today (تاريخ التسوية المقترح)
+      responses:
+        '200':
+          description: Early settlement calculation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EarlySettlementResponse'
+              example:
+                outstanding_principal: 350000.00
+                accrued_interest: 4500.00
+                settlement_fee: 5000.00
+                total_settlement: 359500.00
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Contracts]
+      summary: Execute early settlement
+      description: |
+        Executes an early settlement for a contract. Closes all remaining installments,
+        records the settlement payment, and creates subledger entries.
+        تنفيذ التسوية المبكرة للعقد.
+      operationId: executeEarlySettlement
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/ContractIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EarlySettlementRequest'
+            example:
+              settlement_date: "2026-06-15"
+              channel: "BRANCH"
+              idempotency_key: "es-2026-001"
+      responses:
+        '200':
+          description: Early settlement executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EarlySettlementResponse'
+              example:
+                outstanding_principal: 350000.00
+                accrued_interest: 4500.00
+                settlement_fee: 5000.00
+                total_settlement: 359500.00
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # ==========================================================================
   # Reservations
   # ==========================================================================
@@ -1176,6 +1478,93 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      tags: [Reservations]
+      summary: List reservations
+      description: |
+        Returns a paginated list of reservations with optional filters by status,
+        product, customer, and date range.
+        قائمة الحجوزات مع التصفية.
+      operationId: listReservations
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ReservationStatus'
+          description: Filter by reservation status (تصفية حسب حالة الحجز)
+        - name: product_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+          description: Filter by product (تصفية حسب المنتج)
+        - name: customer_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+          description: Filter by customer (تصفية حسب العميل)
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated list of reservations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reservation'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  has_next:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /reservations/{id}:
+    get:
+      tags: [Reservations]
+      summary: Get reservation details
+      description: |
+        Returns full details of a specific reservation including status, slot, and payment info.
+        تفاصيل الحجز.
+      operationId: getReservation
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ReservationIdPath'
+      responses:
+        '200':
+          description: Reservation details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -1378,6 +1767,34 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /categories/{id}:
+    get:
+      tags: [Categories]
+      summary: Get category details
+      description: |
+        Returns full details of a specific category including children and default policies.
+        تفاصيل الفئة.
+      operationId: getCategory
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/CategoryIdPath'
+      responses:
+        '200':
+          description: Category details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
     put:
       tags: [Categories]
       summary: Update a category
@@ -1554,6 +1971,100 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /attributes/definitions/{id}:
+    get:
+      tags: [Attributes]
+      summary: Get attribute definition details
+      description: |
+        Returns full details of a specific attribute definition including validation rules.
+        تفاصيل تعريف السمة.
+      operationId: getAttributeDefinition
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/AttributeDefinitionIdPath'
+      responses:
+        '200':
+          description: Attribute definition details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributeDefinition'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Attributes]
+      summary: Update an attribute definition
+      description: |
+        Updates attribute definition properties such as label, validation, and JSON schema.
+        تحديث تعريف السمة.
+      operationId: updateAttributeDefinition
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/AttributeDefinitionIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAttributeDefinitionRequest'
+      responses:
+        '200':
+          description: Attribute definition updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributeDefinition'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Attributes]
+      summary: Delete an attribute definition
+      description: |
+        Deletes an attribute definition. Cannot delete if in use by attribute sets or products.
+        حذف تعريف السمة.
+      operationId: deleteAttributeDefinition
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/AttributeDefinitionIdPath'
+      responses:
+        '204':
+          description: Attribute definition deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /attributes/sets:
     post:
       tags: [Attributes]
@@ -1596,6 +2107,138 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      tags: [Attributes]
+      summary: List attribute sets
+      description: |
+        Returns a paginated list of attribute sets with their linked definitions.
+        قائمة مجموعات السمات.
+      operationId: listAttributeSets
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: List of attribute sets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AttributeSet'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /attributes/sets/{id}:
+    get:
+      tags: [Attributes]
+      summary: Get attribute set details
+      description: |
+        Returns full details of a specific attribute set including linked definitions.
+        تفاصيل مجموعة السمات.
+      operationId: getAttributeSet
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/AttributeSetIdPath'
+      responses:
+        '200':
+          description: Attribute set details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributeSet'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Attributes]
+      summary: Update an attribute set
+      description: |
+        Updates attribute set name, description, and linked attribute definitions.
+        تحديث مجموعة السمات.
+      operationId: updateAttributeSet
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/AttributeSetIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAttributeSetRequest'
+      responses:
+        '200':
+          description: Attribute set updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttributeSet'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Attributes]
+      summary: Delete an attribute set
+      description: |
+        Deletes an attribute set. Cannot delete if linked to active products.
+        حذف مجموعة السمات.
+      operationId: deleteAttributeSet
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/AttributeSetIdPath'
+      responses:
+        '204':
+          description: Attribute set deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -1656,6 +2299,114 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      tags: [Channels]
+      summary: Create a distribution channel
+      description: |
+        Creates a new distribution channel with code and bilingual name.
+        انشاء قناة توزيع جديدة.
+      operationId: createChannel
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChannelRequest'
+            example:
+              code: "KIOSK"
+              name_ar: "كشك"
+              name_en: "Kiosk"
+      responses:
+        '201':
+          description: Channel created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /channels/{id}:
+    put:
+      tags: [Channels]
+      summary: Update a channel
+      description: |
+        Updates channel properties such as name and code.
+        تحديث بيانات القناة.
+      operationId: updateChannel
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/ChannelIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChannelRequest'
+      responses:
+        '200':
+          description: Channel updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Channels]
+      summary: Delete a channel
+      description: |
+        Deletes a distribution channel. Cannot delete if linked to active products.
+        حذف قناة التوزيع.
+      operationId: deleteChannel
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ChannelIdPath'
+      responses:
+        '204':
+          description: Channel deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -1753,6 +2504,100 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /charges/{id}:
+    get:
+      tags: [Charges]
+      summary: Get charge details
+      description: |
+        Returns full details of a specific charge definition.
+        تفاصيل الرسم.
+      operationId: getCharge
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ChargeIdPath'
+      responses:
+        '200':
+          description: Charge details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Charge'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Charges]
+      summary: Update a charge definition
+      description: |
+        Updates charge properties such as name, value, basis, and parameters.
+        تحديث بيانات الرسم.
+      operationId: updateCharge
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/ChargeIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChargeRequest'
+      responses:
+        '200':
+          description: Charge updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Charge'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Charges]
+      summary: Delete a charge definition
+      description: |
+        Deletes a charge definition. Cannot delete if linked to active products or contracts.
+        حذف تعريف الرسم.
+      operationId: deleteCharge
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ChargeIdPath'
+      responses:
+        '204':
+          description: Charge deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -1927,6 +2772,33 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Customers]
+      summary: Delete a customer
+      description: |
+        Deletes a customer record. Cannot delete if the customer has active contracts
+        or reservations.
+        حذف العميل — لا يمكن الحذف إذا كانت هناك عقود أو حجوزات نشطة.
+      operationId: deleteCustomer
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/CustomerIdPath'
+      responses:
+        '204':
+          description: Customer deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '500':
@@ -2120,6 +2992,326 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  # ==========================================================================
+  # Accounting
+  # ==========================================================================
+  /accounting/templates:
+    post:
+      tags: [Accounting]
+      summary: Create an accounting template
+      description: |
+        Creates an accounting template that defines journal entry patterns for specific
+        business events (e.g. DISBURSEMENT, PAYMENT, PENALTY). Each template contains
+        debit/credit entry definitions.
+        انشاء قالب محاسبي يحدد نمط القيود لأحداث الأعمال.
+      operationId: createAccountingTemplate
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountingTemplateRequest'
+            example:
+              name: "Loan Disbursement Template"
+              event: "DISBURSEMENT"
+              entries:
+                - dr_account: "1201-LOAN_RECEIVABLE"
+                  cr_account: "1001-CASH"
+                  description: "Loan principal disbursement"
+      responses:
+        '201':
+          description: Accounting template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountingTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      tags: [Accounting]
+      summary: List accounting templates
+      description: |
+        Returns a paginated list of accounting templates with optional event filter.
+        قائمة القوالب المحاسبية.
+      operationId: listAccountingTemplates
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: event
+          in: query
+          schema:
+            type: string
+          description: Filter by event type (تصفية حسب نوع الحدث)
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: List of accounting templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AccountingTemplate'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /accounting/templates/{id}:
+    get:
+      tags: [Accounting]
+      summary: Get accounting template details
+      description: |
+        Returns full details of a specific accounting template including entry definitions.
+        تفاصيل القالب المحاسبي.
+      operationId: getAccountingTemplate
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/AccountingTemplateIdPath'
+      responses:
+        '200':
+          description: Accounting template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountingTemplate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Accounting]
+      summary: Update an accounting template
+      description: |
+        Updates accounting template properties such as name, event, and entry definitions.
+        تحديث القالب المحاسبي.
+      operationId: updateAccountingTemplate
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/AccountingTemplateIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountingTemplateRequest'
+      responses:
+        '200':
+          description: Accounting template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountingTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /accounting/product-mappings:
+    post:
+      tags: [Accounting]
+      summary: Create a product-accounting mapping
+      description: |
+        Maps a product to an accounting template for a specific event type. This determines
+        which journal entry pattern is used when the event occurs.
+        ربط المنتج بقالب محاسبي لنوع حدث معين.
+      operationId: createProductAccountingMap
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductAccountingMapRequest'
+            example:
+              product_id: 50
+              template_id: 1
+              event_type: "DISBURSEMENT"
+      responses:
+        '201':
+          description: Product-accounting mapping created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductAccountingMap'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      tags: [Accounting]
+      summary: List product-accounting mappings
+      description: |
+        Returns product-to-accounting-template mappings with optional filters.
+        قائمة ربط المنتجات بالقوالب المحاسبية.
+      operationId: listProductAccountingMaps
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: product_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+          description: Filter by product (تصفية حسب المنتج)
+        - name: event_type
+          in: query
+          schema:
+            type: string
+          description: Filter by event type (تصفية حسب نوع الحدث)
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: List of product-accounting mappings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductAccountingMap'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /subledger/entries:
+    get:
+      tags: [Accounting]
+      summary: Query subledger entries
+      description: |
+        Returns subledger journal entries with filters by contract, event type, and date range.
+        Used for financial reporting and reconciliation (IFRS 9).
+        استعلام قيود دفتر الأستاذ الفرعي.
+      operationId: listSubledgerEntries
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: contract_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+          description: Filter by contract (تصفية حسب العقد)
+        - name: event_type
+          in: query
+          schema:
+            type: string
+          description: Filter by event type (تصفية حسب نوع الحدث)
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Start date ISO 8601 (تاريخ البداية)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: End date ISO 8601 (تاريخ النهاية)
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: Paginated subledger entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SubledgerEntry'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  has_next:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 # ============================================================================
 # Components
 # ============================================================================
@@ -2224,6 +3416,69 @@ components:
         type: integer
         format: int64
       description: Customer ID (معرف العميل)
+
+    AccountingTemplateIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Accounting template ID (معرف قالب المحاسبة)
+
+    AttributeDefinitionIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Attribute definition ID (معرف تعريف السمة)
+
+    AttributeSetIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Attribute set ID (معرف مجموعة السمات)
+
+    ChannelIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Channel ID (معرف القناة)
+
+    ChargeIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Charge ID (معرف الرسم)
+
+    NumberingSchemeIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Numbering scheme ID (معرف مخطط الترقيم)
+
+    PriceListIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      description: Price list ID (معرف قائمة الأسعار)
 
   # --------------------------------------------------------------------------
   # Responses (Error)
@@ -2774,6 +4029,63 @@ components:
           format: date-time
           description: Reservation expiry timestamp (وقت انتهاء الحجز)
 
+    NumberingScheme:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        code:
+          type: string
+          description: Scheme code (رمز المخطط)
+        name:
+          type: string
+          description: Scheme name (اسم المخطط)
+        pattern:
+          type: string
+          description: "Number format pattern, e.g. FIN-LOAN-{YYYY}-{SEQ:6} (نمط التنسيق)"
+        gap_policy:
+          type: string
+          enum: [ALLOW, DENY, REUSE]
+          description: Gap management policy (سياسة إدارة الفجوات)
+        current_value:
+          type: integer
+          format: int64
+          description: Current sequence counter value (القيمة الحالية للعداد)
+
+    NumberingSequence:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        scheme_id:
+          type: integer
+          format: int64
+          description: Associated scheme ID (معرف المخطط المرتبط)
+        scheme_code:
+          type: string
+          description: Scheme code (رمز المخطط)
+        current_value:
+          type: integer
+          format: int64
+          description: Current counter value (القيمة الحالية)
+        last_reserved_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Last reservation timestamp (وقت آخر حجز)
+        status:
+          type: string
+          enum: [ACTIVE, EXHAUSTED]
+          description: Sequence status (حالة التسلسل)
+
     # ========== Contract Schemas ==========
 
     CreateContractRequest:
@@ -3025,6 +4337,14 @@ components:
     SubledgerEntry:
       type: object
       properties:
+        id:
+          type: integer
+          format: int64
+          description: Subledger entry ID (معرف قيد دفتر الأستاذ الفرعي)
+        contract_id:
+          type: integer
+          format: int64
+          description: Associated contract ID (معرف العقد المرتبط)
         event_type:
           type: string
           description: "Event type: PAYMENT, DISBURSEMENT, PENALTY, etc. (نوع الحدث)"
@@ -3038,6 +4358,17 @@ components:
           type: number
           format: double
           description: Entry amount (مبلغ القيد)
+        posted_at:
+          type: string
+          format: date-time
+          description: Posting timestamp (وقت الترحيل)
+        ref:
+          type: string
+          nullable: true
+          description: External reference (المرجع الخارجي)
+        idempotency_key:
+          type: string
+          description: Unique key to prevent duplicate entries (مفتاح عدم التكرار)
 
     ContractStatement:
       type: object
@@ -3077,6 +4408,43 @@ components:
           type: number
           format: double
           description: Running balance after this entry (الرصيد الجاري بعد القيد)
+
+    # ========== Early Settlement Schemas ==========
+
+    EarlySettlementRequest:
+      type: object
+      required: [settlement_date, channel, idempotency_key]
+      properties:
+        settlement_date:
+          type: string
+          format: date
+          description: Date of early settlement (تاريخ التسوية المبكرة)
+        channel:
+          type: string
+          description: Settlement channel (قناة التسوية)
+        idempotency_key:
+          type: string
+          description: Unique key to prevent duplicate settlements (مفتاح عدم التكرار)
+
+    EarlySettlementResponse:
+      type: object
+      properties:
+        outstanding_principal:
+          type: number
+          format: double
+          description: Remaining principal balance (رصيد الأصل المتبقي)
+        accrued_interest:
+          type: number
+          format: double
+          description: Accrued interest up to settlement date (الفائدة المستحقة حتى تاريخ التسوية)
+        settlement_fee:
+          type: number
+          format: double
+          description: Early settlement fee/penalty (رسم التسوية المبكرة)
+        total_settlement:
+          type: number
+          format: double
+          description: Total settlement amount to pay (اجمالي مبلغ التسوية)
 
     # ========== Reservation Schemas ==========
 
@@ -3465,6 +4833,20 @@ components:
           type: string
           description: English name (الاسم بالإنجليزية)
 
+    CreateChannelRequest:
+      type: object
+      required: [code, name_ar]
+      properties:
+        code:
+          type: string
+          description: Unique channel code (رمز القناة الفريد)
+        name_ar:
+          type: string
+          description: Arabic name (الاسم بالعربية) - required
+        name_en:
+          type: string
+          description: English name (الاسم بالإنجليزية)
+
     SetProductChannelsRequest:
       type: object
       required: [channels]
@@ -3798,6 +5180,111 @@ components:
         payload:
           type: object
           description: Event payload as JSONB (حمولة الحدث)
+        created_at:
+          type: string
+          format: date-time
+
+    # ========== Accounting Schemas ==========
+
+    CreateAccountingTemplateRequest:
+      type: object
+      required: [name, event, entries]
+      properties:
+        name:
+          type: string
+          description: Template name (اسم القالب)
+        event:
+          type: string
+          description: "Business event: DISBURSEMENT, PAYMENT, PENALTY, WRITE_OFF, etc. (حدث الأعمال)"
+        entries:
+          type: array
+          items:
+            type: object
+            required: [dr_account, cr_account]
+            properties:
+              dr_account:
+                type: string
+                description: Debit account code (رمز الحساب المدين)
+              cr_account:
+                type: string
+                description: Credit account code (رمز الحساب الدائن)
+              description:
+                type: string
+                description: Entry description (وصف القيد)
+          description: Journal entry line definitions (تعريفات سطور القيد المحاسبي)
+
+    AccountingTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Template ID (معرف القالب)
+        tenant_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: Template name (اسم القالب)
+        event:
+          type: string
+          description: Business event type (نوع حدث الأعمال)
+        entries:
+          type: array
+          items:
+            type: object
+            properties:
+              dr_account:
+                type: string
+                description: Debit account code (رمز الحساب المدين)
+              cr_account:
+                type: string
+                description: Credit account code (رمز الحساب الدائن)
+              description:
+                type: string
+                description: Entry description (وصف القيد)
+          description: Journal entry line definitions (تعريفات سطور القيد)
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateProductAccountingMapRequest:
+      type: object
+      required: [product_id, template_id, event_type]
+      properties:
+        product_id:
+          type: integer
+          format: int64
+          description: Product ID (معرف المنتج)
+        template_id:
+          type: integer
+          format: int64
+          description: Accounting template ID (معرف القالب المحاسبي)
+        event_type:
+          type: string
+          description: "Event type to map: DISBURSEMENT, PAYMENT, PENALTY, etc. (نوع الحدث المراد ربطه)"
+
+    ProductAccountingMap:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Mapping ID (معرف الربط)
+        product_id:
+          type: integer
+          format: int64
+          description: Product ID (معرف المنتج)
+        template_id:
+          type: integer
+          format: int64
+          description: Accounting template ID (معرف القالب المحاسبي)
+        event_type:
+          type: string
+          description: Mapped event type (نوع الحدث المربوط)
         created_at:
           type: string
           format: date-time
