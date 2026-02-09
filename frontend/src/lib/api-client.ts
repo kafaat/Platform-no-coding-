@@ -25,6 +25,10 @@ export interface RequestConfig {
   params?: Record<string, string | number | boolean | undefined>;
   /** AbortSignal for request cancellation / اشارة الالغاء */
   signal?: AbortSignal;
+  /** Number of retries for transient errors (5xx, network). Default: 0 / عدد المحاولات */
+  retries?: number;
+  /** Base delay in ms between retries (exponential backoff). Default: 1000 / التاخير الاساسي */
+  retryDelay?: number;
 }
 
 // ============================================================
@@ -243,7 +247,32 @@ class ApiClient {
   }
 
   // ----------------------------------------------------------
-  // Core request method
+  // Retry delay helper (abort-signal aware)
+  // ----------------------------------------------------------
+  private delay(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'));
+        return;
+      }
+      const timer = setTimeout(() => {
+        resolve();
+      }, ms);
+      if (signal) {
+        signal.addEventListener(
+          'abort',
+          () => {
+            clearTimeout(timer);
+            reject(new DOMException('Aborted', 'AbortError'));
+          },
+          { once: true },
+        );
+      }
+    });
+  }
+
+  // ----------------------------------------------------------
+  // Core request method with retry support
   // ----------------------------------------------------------
   private async request<T>(
     method: string,
@@ -257,6 +286,8 @@ class ApiClient {
     const url = `${this.baseUrl}${normalizedPath}${queryString}`;
 
     const headers = this.buildHeaders(method, config?.headers);
+    const maxRetries = config?.retries ?? 0;
+    const baseDelay = config?.retryDelay ?? 1000;
 
     const fetchOptions: RequestInit = {
       method: method.toUpperCase(),
@@ -268,8 +299,44 @@ class ApiClient {
       fetchOptions.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, fetchOptions);
-    return this.handleResponse<T>(response);
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fetch(url, fetchOptions);
+
+        // Retry on 5xx server errors if retries remain
+        if (response.status >= 500 && attempt < maxRetries) {
+          await this.delay(baseDelay * Math.pow(2, attempt), config?.signal);
+          continue;
+        }
+
+        return await this.handleResponse<T>(response);
+      } catch (err: unknown) {
+        lastError = err;
+
+        // Never retry aborted requests
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw err;
+        }
+
+        // Don't retry already-handled API errors (non-5xx responses)
+        if (err instanceof ApiClientError) {
+          throw err;
+        }
+
+        // Retry network errors if retries remain
+        if (attempt < maxRetries) {
+          await this.delay(baseDelay * Math.pow(2, attempt), config?.signal);
+          continue;
+        }
+
+        throw err;
+      }
+    }
+
+    // Unreachable in practice but satisfies TypeScript
+    throw lastError;
   }
 
   // ----------------------------------------------------------

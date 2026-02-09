@@ -8,13 +8,10 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCcw,
-  Eye,
   Clock,
   User,
   Check,
   X,
-  AlertTriangle,
-  Filter,
   Activity,
   FileText,
   Wifi,
@@ -32,14 +29,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -111,6 +100,17 @@ const ACTION_CONFIG: Record<string, { label: string; color: string }> = {
 const ENTITY_TYPES = ["PRODUCT", "CONTRACT", "CUSTOMER", "PRICE_LIST", "CATEGORY", "RESERVATION", "PAYMENT", "USER"];
 const ACTIONS = ["CREATE", "UPDATE", "DELETE", "ACTIVATE", "DEACTIVATE", "LOGIN", "PAYMENT", "APPROVE"];
 
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  PRODUCT: "منتج",
+  CONTRACT: "عقد",
+  CUSTOMER: "عميل",
+  PRICE_LIST: "قائمة أسعار",
+  CATEGORY: "فئة",
+  RESERVATION: "حجز",
+  PAYMENT: "دفعة",
+  USER: "مستخدم",
+};
+
 // ============================================================
 // Mock Data
 // ============================================================
@@ -155,10 +155,6 @@ function TableSkeleton({ rows = 5, cols = 6 }: { rows?: number; cols?: number })
       <TableBody>{Array.from({ length: rows }).map((_, r) => <TableRow key={r}>{Array.from({ length: cols }).map((_, c) => <TableCell key={c}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)}</TableBody>
     </Table>
   );
-}
-
-function simulateAsync<T>(result: T, delay = 500): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(result), delay));
 }
 
 /** Simple JSON syntax coloring for diffs */
@@ -337,7 +333,7 @@ export default function AuditScreen() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleExport} disabled={filteredEntries.length === 0}>
-            <Download className="h-4 w-4 ml-1" />تصدير ({filteredEntries.length})
+            <Download className="h-4 w-4 ml-1" />تصدير ({filteredEntries.length.toLocaleString('ar-EG')})
           </Button>
           <Button variant="outline" size="sm" onClick={handleManualRefresh}>
             <RefreshCcw className="h-4 w-4 ml-1" />تحديث
@@ -349,9 +345,9 @@ export default function AuditScreen() {
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         {loading ? [1, 2, 3, 4].map((i) => <Card key={i}><CardContent className="p-5"><Skeleton className="h-16 w-full" /></CardContent></Card>) : (
           <>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">إجمالي السجلات</p><p className="text-2xl font-bold">{totalEntries}</p></div><div className="p-3 rounded-lg bg-blue-50 text-blue-600"><FileText className="h-5 w-5" /></div></div></CardContent></Card>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">سجلات اليوم</p><p className="text-2xl font-bold">{todayCount}</p></div><div className="p-3 rounded-lg bg-emerald-50 text-emerald-600"><Activity className="h-5 w-5" /></div></div></CardContent></Card>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">المستخدمون النشطون</p><p className="text-2xl font-bold">{uniqueUsers}</p></div><div className="p-3 rounded-lg bg-purple-50 text-purple-600"><User className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">إجمالي السجلات</p><p className="text-2xl font-bold">{totalEntries.toLocaleString('ar-EG')}</p></div><div className="p-3 rounded-lg bg-blue-50 text-blue-600"><FileText className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">سجلات اليوم</p><p className="text-2xl font-bold">{todayCount.toLocaleString('ar-EG')}</p></div><div className="p-3 rounded-lg bg-emerald-50 text-emerald-600"><Activity className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">المستخدمون النشطون</p><p className="text-2xl font-bold">{uniqueUsers.toLocaleString('ar-EG')}</p></div><div className="p-3 rounded-lg bg-purple-50 text-purple-600"><User className="h-5 w-5" /></div></div></CardContent></Card>
             <Card className={`hover:shadow-md transition-shadow ${polling ? "border-green-200" : "border-gray-200"}`}>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
@@ -389,7 +385,7 @@ export default function AuditScreen() {
                 <SelectTrigger className="w-40"><SelectValue placeholder="نوع الكيان" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">جميع الكيانات</SelectItem>
-                  {ENTITY_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {ENTITY_TYPES.map((t) => <SelectItem key={t} value={t}>{ENTITY_TYPE_LABELS[t] ?? t}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={actionFilter} onValueChange={setActionFilter}>
@@ -419,7 +415,7 @@ export default function AuditScreen() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
-              <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" />سجلات التدقيق ({filteredEntries.length})</span>
+              <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" />سجلات التدقيق ({filteredEntries.length.toLocaleString('ar-EG')})</span>
               {polling && <span className="flex items-center gap-1.5 text-xs text-green-600"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" /></span>تحديث مباشر كل 10 ثوانٍ</span>}
             </CardTitle>
           </CardHeader>
@@ -445,7 +441,7 @@ export default function AuditScreen() {
                         className="border-b transition-colors cursor-pointer hover:bg-muted/30"
                         onClick={() => setExpandedId(isExpanded ? null : entry.id)}
                       >
-                        <TableCell className="text-center">
+                        <TableCell className="text-center" aria-label={isExpanded ? "طي التفاصيل" : "عرض التفاصيل"}>
                           <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
                             <ChevronDown className="h-4 w-4 text-muted-foreground" />
                           </motion.div>
@@ -470,7 +466,7 @@ export default function AuditScreen() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <Badge variant="outline" className="font-mono text-[10px]">{entry.entity_type}</Badge>
+                            <Badge variant="outline" className="text-[10px]">{ENTITY_TYPE_LABELS[entry.entity_type] ?? entry.entity_type}</Badge>
                             <p className="text-[10px] text-muted-foreground font-mono mt-0.5">#{entry.entity_id}</p>
                           </div>
                         </TableCell>
@@ -515,7 +511,7 @@ export default function AuditScreen() {
             {/* Pagination */}
             <div className="flex items-center justify-between p-4 border-t">
               <p className="text-sm text-muted-foreground">
-                عرض {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredEntries.length)}-{Math.min(currentPage * PAGE_SIZE, filteredEntries.length)} من {filteredEntries.length} سجل
+                عرض {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredEntries.length).toLocaleString('ar-EG')}-{Math.min(currentPage * PAGE_SIZE, filteredEntries.length).toLocaleString('ar-EG')} من {filteredEntries.length.toLocaleString('ar-EG')} سجل
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
@@ -524,7 +520,7 @@ export default function AuditScreen() {
                 <div className="flex items-center gap-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button key={page} variant={page === currentPage ? "default" : "outline"} size="sm" className="w-8 h-8 p-0" onClick={() => setCurrentPage(page)}>
-                      {page}
+                      {page.toLocaleString('ar-EG')}
                     </Button>
                   ))}
                 </div>

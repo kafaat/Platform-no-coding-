@@ -28,7 +28,6 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  CloudOff,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -184,7 +183,7 @@ function EditorSkeleton() {
 interface FormState {
   nameAr: string;
   nameEn: string;
-  type: string;
+  type: ProductType | "";
   category: string;
   divisible: boolean;
   description: string;
@@ -794,7 +793,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
       {/* ── Header ────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack}>
+          <Button variant="ghost" size="icon" onClick={onBack} aria-label="العودة إلى القائمة">
             <ArrowRight className="h-5 w-5" />
           </Button>
           <div>
@@ -825,7 +824,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
           )}
           {autoSaveStatus === "saved" && (
             <span className="flex items-center gap-1 text-xs text-green-600">
-              <CloudOff className="h-3 w-3" />
+              <Check className="h-3 w-3" />
               تم الحفظ
             </span>
           )}
@@ -1071,13 +1070,20 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                                 )}
                               </div>
                               <div className="flex gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  aria-label={`عرض تفاصيل الإصدار ${v.version_no}`}
+                                  onClick={() => addToast("success", `عرض تفاصيل الإصدار ${v.version_no}`)}
+                                >
                                   <FileText className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-destructive"
+                                  aria-label={`حذف الإصدار ${v.version_no}`}
                                   onClick={() => removeVersion(v.id)}
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -1181,6 +1187,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
+                            aria-label={`حذف سمة ${attr.label_ar}`}
                             onClick={() => removeAttr(attr.id)}
                           >
                             <X className="h-4 w-4" />
@@ -1246,6 +1253,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-destructive"
+                                  aria-label={`حذف قائمة أسعار ${row.list_name}`}
                                   onClick={() => removePricing(row.id)}
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -1465,7 +1473,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                     <p className="text-sm text-muted-foreground">
                       ربط قوالب المحاسبة بأحداث الأعمال لتوليد القيود تلقائياً
                     </p>
-                    <Button size="sm">
+                    <Button size="sm" onClick={() => addToast("success", "سيتم إضافة ربط القوالب المحاسبية قريباً")} aria-label="ربط قالب محاسبي">
                       <Plus className="h-4 w-4 ml-1" />
                       ربط قالب
                     </Button>
@@ -1495,7 +1503,13 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                             <td className="p-3 font-mono text-xs">{row.dr_account}</td>
                             <td className="p-3 font-mono text-xs">{row.cr_account}</td>
                             <td className="p-3 text-center">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                aria-label={`حذف قالب ${row.event_ar}`}
+                                onClick={() => addToast("success", `سيتم حذف قالب "${row.event_ar}" قريباً`)}
+                              >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </td>
@@ -1557,14 +1571,15 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                                   </Badge>
                                   <span className="text-sm font-medium">
                                     {ch.basis === "PERCENT"
-                                      ? `${ch.value}%`
-                                      : `${Number(ch.value).toLocaleString()} ر.ي`}
+                                      ? `${Number(ch.value).toLocaleString("ar-EG")}%`
+                                      : `${Number(ch.value).toLocaleString("ar-EG")} ر.ي`}
                                   </span>
                                   <Badge variant="secondary" className="text-xs">{ch.when_event}</Badge>
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8 text-destructive"
+                                    aria-label={`حذف رسم ${ch.name}`}
                                     onClick={() => removeCharge(ch.id)}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -1681,6 +1696,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-destructive"
+                                  aria-label={`حذف مكوّن ${row.child_name_ar}`}
                                   onClick={() => removeComposition(row.id)}
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -1760,6 +1776,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive mr-2"
+                            aria-label={`حذف قاعدة ${rule.name}`}
                             onClick={() => removeEligibility(rule.id)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -1811,6 +1828,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                               <button
                                 onClick={() => toggleDocMandatory(doc.id)}
                                 className="cursor-pointer"
+                                aria-label={`تبديل إلزامية ${doc.name_ar}`}
                               >
                                 {doc.mandatory ? (
                                   <Badge className="bg-red-50 text-red-700 border-red-200 text-xs hover:bg-red-100">
@@ -1826,6 +1844,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-destructive"
+                                aria-label={`حذف مستند ${doc.name_ar}`}
                                 onClick={() => removeDocument(doc.id)}
                               >
                                 <Trash2 className="h-4 w-4" />

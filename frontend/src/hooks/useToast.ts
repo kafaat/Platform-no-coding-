@@ -7,7 +7,7 @@
  * should prefer the context-based `useToast()` from `@/context/ToastContext`.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 // ============================================================
 // Types
@@ -60,6 +60,15 @@ let globalCounter = 0;
 export function useToastState(maxToasts: number = MAX_TOASTS): UseToastStateReturn {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Clean up all pending auto-dismiss timers on unmount to prevent memory leaks.
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
+  }, []);
 
   const removeToast = useCallback((id: string) => {
     // Clear any pending auto-dismiss timer.

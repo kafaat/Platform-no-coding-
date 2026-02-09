@@ -44,8 +44,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import type { KYCLevel } from "@/types";
-
 // ============================================================
 // Loading Skeletons
 // ============================================================
@@ -619,7 +617,7 @@ function CustomerDetail({
                     <tr key={idx} className="border-b hover:bg-muted/20">
                       <td className="p-2 font-mono text-xs">CTR-2024-{String(idx + 1).padStart(3, "0")}</td>
                       <td className="p-2">{idx % 2 === 0 ? "قرض شخصي ميسر" : "تمويل عقاري"}</td>
-                      <td className="p-2">{((idx + 1) * 2500000).toLocaleString()} ر.ي</td>
+                      <td className="p-2">{((idx + 1) * 2500000).toLocaleString('ar-EG')} ر.ي</td>
                       <td className="p-2">
                         <span className={`px-2 py-0.5 rounded-full text-xs ${idx === 0 ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
                           {idx === 0 ? "نشط" : "مُعاد هيكلته"}
@@ -851,7 +849,7 @@ export default function Customers() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled title="قريباً">
             <Download className="h-4 w-4 ml-1" />
             تصدير
           </Button>
@@ -872,27 +870,27 @@ export default function Customers() {
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">إجمالي العملاء</p>
                 <motion.p key={totalCount} initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="text-2xl font-bold">
-                  {totalCount}
+                  {totalCount.toLocaleString('ar-EG')}
                 </motion.p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">KYC كامل</p>
-                <p className="text-2xl font-bold text-green-600">{fullKycCount}</p>
+                <p className="text-2xl font-bold text-green-600">{fullKycCount.toLocaleString('ar-EG')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">KYC أساسي</p>
-                <p className="text-2xl font-bold text-yellow-600">{basicKycCount}</p>
+                <p className="text-2xl font-bold text-yellow-600">{basicKycCount.toLocaleString('ar-EG')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">متوسط التقييم</p>
                 <div className="flex items-center gap-2">
-                  <p className="text-2xl font-bold">{avgScore}</p>
+                  <p className="text-2xl font-bold">{avgScore.toLocaleString('ar-EG')}</p>
                   <div className="flex-1 max-w-[80px]">
                     <ScoreBar score={avgScore} />
                   </div>
@@ -1011,6 +1009,7 @@ export default function Customers() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
+                            aria-label="عرض تفاصيل العميل"
                             onClick={() => setSelectedCustomer(customer)}
                           >
                             <Eye className="h-4 w-4" />
@@ -1019,6 +1018,7 @@ export default function Customers() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
+                            aria-label="تعديل العميل"
                             onClick={() => openEditDialog(customer)}
                           >
                             <Edit3 className="h-4 w-4" />
@@ -1027,6 +1027,7 @@ export default function Customers() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive hover:text-destructive"
+                            aria-label="حذف العميل"
                             onClick={() => openDeleteDialog(customer)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -1050,17 +1051,19 @@ export default function Customers() {
                 variant="outline"
                 size="sm"
                 disabled={page <= 1}
+                aria-label="الصفحة السابقة"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <span className="text-sm px-3">
-                صفحة {page} من {totalPages}
+                صفحة {page.toLocaleString('ar-EG')} من {totalPages.toLocaleString('ar-EG')}
               </span>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={page >= totalPages}
+                aria-label="الصفحة التالية"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >
                 <ChevronLeft className="h-4 w-4" />

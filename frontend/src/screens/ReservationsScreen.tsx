@@ -301,7 +301,7 @@ function StatCard({ title, value, icon, color }: { title: string; value: number;
             <div>
               <p className="text-sm text-muted-foreground">{title}</p>
               <motion.p key={value} initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="text-2xl font-bold mt-1">
-                {value}
+                {value.toLocaleString('ar-EG')}
               </motion.p>
             </div>
             <div className={`p-3 rounded-lg ${color}`}>{icon}</div>
@@ -420,13 +420,13 @@ function WeeklyCalendar({
               <span className="text-xs font-normal text-muted-foreground">(اضغط على خلية فارغة لإنشاء حجز)</span>
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekOffset((w) => w + 1)}>
+              <Button variant="outline" size="icon" className="h-8 w-8" aria-label="الأسبوع السابق" onClick={() => setWeekOffset((w) => w - 1)}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <Button variant="outline" size="sm" onClick={() => setWeekOffset(0)}>
                 هذا الأسبوع
               </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekOffset((w) => w - 1)}>
+              <Button variant="outline" size="icon" className="h-8 w-8" aria-label="الأسبوع التالي" onClick={() => setWeekOffset((w) => w + 1)}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
             </div>
@@ -602,7 +602,7 @@ function AvailabilityCheck() {
                     <p className="text-sm font-medium">نتائج التوفر: {product.name}</p>
                     <div className="flex items-center gap-1.5">
                       <Users className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">السعة الإجمالية: {product.capacity}</span>
+                      <span className="text-sm text-muted-foreground">السعة الإجمالية: {product.capacity.toLocaleString('ar-EG')}</span>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
@@ -1161,7 +1161,7 @@ export default function ReservationsScreen() {
             <CardTitle className="text-base flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
-                قائمة الحجوزات ({filtered.length})
+                قائمة الحجوزات ({filtered.length.toLocaleString('ar-EG')})
               </span>
             </CardTitle>
           </CardHeader>
@@ -1290,7 +1290,7 @@ export default function ReservationsScreen() {
                               إلغاء
                             </Button>
                           )}
-                          <Button variant="ghost" size="icon" className="h-7 w-7">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="عرض تفاصيل الحجز" onClick={() => setActionTarget(reservation)}>
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -1304,7 +1304,7 @@ export default function ReservationsScreen() {
             {/* Pagination */}
             <div className="flex items-center justify-between p-4 border-t">
               <p className="text-sm text-muted-foreground">
-                عرض {paginated.length} من {filtered.length} حجز
+                عرض {paginated.length.toLocaleString('ar-EG')} من {filtered.length.toLocaleString('ar-EG')} حجز
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -1316,7 +1316,7 @@ export default function ReservationsScreen() {
                   <ChevronRight className="h-4 w-4" />
                   السابق
                 </Button>
-                <span className="text-sm px-3">صفحة {page} من {totalPages}</span>
+                <span className="text-sm px-3">صفحة {page.toLocaleString('ar-EG')} من {totalPages.toLocaleString('ar-EG')}</span>
                 <Button
                   variant="outline"
                   size="sm"

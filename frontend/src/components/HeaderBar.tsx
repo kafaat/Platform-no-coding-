@@ -2,23 +2,21 @@ import { Bell, Search, Moon, Sun, Globe, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useApp } from "@/context/AppContext";
 
 interface HeaderBarProps {
   sidebarCollapsed: boolean;
 }
 
 export default function HeaderBar({ sidebarCollapsed }: HeaderBarProps) {
-  const [darkMode, setDarkMode] = useState(false);
-  const [lang, setLang] = useState<"ar" | "en">("ar");
+  const { darkMode, setDarkMode, locale, setLocale } = useApp();
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
-    document.documentElement.classList.toggle("dark");
   };
 
   const toggleLang = () => {
-    setLang(lang === "ar" ? "en" : "ar");
+    setLocale(locale === "ar" ? "en" : "ar");
   };
 
   return (
@@ -30,14 +28,14 @@ export default function HeaderBar({ sidebarCollapsed }: HeaderBarProps) {
       <div className="relative w-72">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
         <Input
-          placeholder={lang === "ar" ? "بحث..." : "Search..."}
+          placeholder={locale === "ar" ? "بحث..." : "Search..."}
           className="pr-10 h-9 text-sm"
         />
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={toggleLang} className="h-9 w-9" title={lang === "ar" ? "English" : "العربية"}>
+        <Button variant="ghost" size="icon" onClick={toggleLang} className="h-9 w-9" title={locale === "ar" ? "English" : "العربية"}>
           <Globe size={16} />
         </Button>
 

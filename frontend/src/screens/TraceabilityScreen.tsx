@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   ScanBarcode,
@@ -227,7 +227,7 @@ function SummaryStats() {
                   <div className={`p-2 rounded-lg ${config.color}`}>{config.icon}</div>
                   <div>
                     <p className="text-xs text-muted-foreground">{config.label}</p>
-                    <p className="text-lg font-bold">{count}</p>
+                    <p className="text-lg font-bold">{count.toLocaleString('ar-EG')}</p>
                   </div>
                 </div>
               </CardContent>
@@ -286,6 +286,14 @@ export default function TraceabilityScreen() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  const handleCopy = useCallback((record: IdentifierRecord) => {
+    navigator.clipboard.writeText(record.identifier).then(() => {
+      setCopiedId(record.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  }, []);
 
   const filtered = mockIdentifiers.filter((item) => {
     if (typeFilter !== "ALL" && item.idType !== typeFilter) return false;
@@ -324,11 +332,11 @@ export default function TraceabilityScreen() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled title="قريبا">
               <Download className="h-4 w-4 ml-1" />
               تصدير
             </Button>
-            <Button size="sm">
+            <Button size="sm" disabled title="قريبا">
               <Plus className="h-4 w-4 ml-1" />
               معرف جديد
             </Button>
@@ -378,6 +386,20 @@ export default function TraceabilityScreen() {
                   <SelectItem value="EXPIRED">منتهي</SelectItem>
                 </SelectContent>
               </Select>
+              {(search || typeFilter !== "ALL" || statusFilter !== "ALL") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => {
+                    setSearch("");
+                    setTypeFilter("ALL");
+                    setStatusFilter("ALL");
+                  }}
+                >
+                  مسح الفلاتر
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -390,7 +412,7 @@ export default function TraceabilityScreen() {
             <CardTitle className="text-base flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Tag className="h-4 w-4" />
-                جدول المعرفات ({filtered.length})
+                جدول المعرفات ({filtered.length.toLocaleString('ar-EG')})
               </span>
             </CardTitle>
           </CardHeader>
@@ -467,11 +489,21 @@ export default function TraceabilityScreen() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {record.assignedAt}
+                        {new Date(record.assignedAt).toLocaleDateString('ar-EG')}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Copy className="h-4 w-4" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label="نسخ المعرف"
+                          onClick={() => handleCopy(record)}
+                        >
+                          {copiedId === record.id ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
                         </Button>
                       </TableCell>
                     </motion.tr>
@@ -493,7 +525,7 @@ export default function TraceabilityScreen() {
             {/* Pagination */}
             <div className="flex items-center justify-between p-4 border-t">
               <p className="text-sm text-muted-foreground">
-                عرض {filtered.length} من {mockIdentifiers.length} معرف
+                عرض {filtered.length.toLocaleString('ar-EG')} من {mockIdentifiers.length.toLocaleString('ar-EG')} معرف
               </p>
             </div>
           </CardContent>

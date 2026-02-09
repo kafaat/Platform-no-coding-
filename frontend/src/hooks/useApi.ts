@@ -51,10 +51,16 @@ export function useApi<T>(
 
   // Monotonically increasing counter so stale responses are ignored.
   const requestId = useRef(0);
+  // Ref to the current AbortController so refetch and unmount can cancel in-flight requests.
+  const controllerRef = useRef<AbortController | null>(null);
 
   const execute = useCallback(() => {
+    // Abort any previous in-flight request before starting a new one.
+    controllerRef.current?.abort();
+
     const id = ++requestId.current;
     const controller = new AbortController();
+    controllerRef.current = controller;
 
     setLoading(true);
     setError(null);
@@ -79,15 +85,14 @@ export function useApi<T>(
           setLoading(false);
         }
       });
-
-    // Return the controller so the cleanup function can abort in-flight requests.
-    return controller;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   useEffect(() => {
-    const controller = execute();
-    return () => controller.abort();
+    execute();
+    return () => {
+      controllerRef.current?.abort();
+    };
   }, [execute]);
 
   const refetch = useCallback(() => {
@@ -140,6 +145,14 @@ export function useMutation<TData, TInput = void>(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track mounted state to prevent state updates after unmount.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // Keep the latest mutator in a ref to avoid stale closures without
   // requiring it in the dependency array.
   const mutatorRef = useRef(mutator);
@@ -151,14 +164,18 @@ export function useMutation<TData, TInput = void>(
 
     try {
       const result = await mutatorRef.current(input);
-      setData(result);
-      setLoading(false);
+      if (mountedRef.current) {
+        setData(result);
+        setLoading(false);
+      }
       return result;
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'An unexpected error occurred';
-      setError(message);
-      setLoading(false);
+      if (mountedRef.current) {
+        setError(message);
+        setLoading(false);
+      }
       throw err;
     }
   }, []);

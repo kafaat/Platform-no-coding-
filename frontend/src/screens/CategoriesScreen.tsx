@@ -38,8 +38,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ProductType } from "@/types";
-
 // ============================================================
 // Types
 // ============================================================
@@ -79,7 +77,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
           >
             {t.type === "success" ? <Check className="h-4 w-4" /> : t.type === "warning" ? <AlertTriangle className="h-4 w-4" /> : <X className="h-4 w-4" />}
             {t.message}
-            <button onClick={() => onDismiss(t.id)} className="mr-2 hover:opacity-70"><X className="h-3 w-3" /></button>
+            <button onClick={() => onDismiss(t.id)} className="mr-2 hover:opacity-70" aria-label="إغلاق الإشعار"><X className="h-3 w-3" /></button>
           </motion.div>
         ))}
       </AnimatePresence>
@@ -207,9 +205,9 @@ function CategoryTreeNode({ category, depth, expanded, onToggleExpand, onSelect,
         style={{ marginRight: `${depth * 24}px` }}
         onClick={() => onSelect(category)}
       >
-        <div className="text-muted-foreground cursor-grab active:cursor-grabbing"><GripVertical className="h-4 w-4" /></div>
+        <div className="text-muted-foreground cursor-grab active:cursor-grabbing" role="button" aria-label="سحب لإعادة الترتيب"><GripVertical className="h-4 w-4" /></div>
         {hasChildren ? (
-          <button className="p-0.5 rounded hover:bg-muted" onClick={(e) => { e.stopPropagation(); onToggleExpand(category.id); }}>
+          <button className="p-0.5 rounded hover:bg-muted" aria-label={isExpanded ? "طي الفئة" : "توسيع الفئة"} onClick={(e) => { e.stopPropagation(); onToggleExpand(category.id); }}>
             {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronLeft className="h-4 w-4 text-muted-foreground" />}
           </button>
         ) : <span className="w-5" />}
@@ -224,7 +222,7 @@ function CategoryTreeNode({ category, depth, expanded, onToggleExpand, onSelect,
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <Badge variant="outline" className={`text-[10px] ${typeConfig.color}`}>{typeConfig.label}</Badge>
-          <Badge variant="secondary" className="text-[10px] gap-1"><Package className="h-3 w-3" />{category.product_count}</Badge>
+          <Badge variant="secondary" className="text-[10px] gap-1"><Package className="h-3 w-3" />{category.product_count.toLocaleString('ar-EG')}</Badge>
           {!category.is_active && <Badge variant="outline" className="text-[10px] bg-gray-100 text-gray-600">معطّلة</Badge>}
         </div>
       </motion.div>
@@ -271,6 +269,12 @@ export default function CategoriesScreen() {
   const dismissToast = useCallback((id: number) => { setToasts((prev) => prev.filter((t) => t.id !== id)); }, []);
 
   useEffect(() => { const timer = setTimeout(() => { setCategories(initialCategories); setLoading(false); }, 800); return () => clearTimeout(timer); }, []);
+
+  useEffect(() => {
+    const onNativeDragEnd = () => { setDraggingId(null); setDragOverId(null); };
+    document.addEventListener('dragend', onNativeDragEnd);
+    return () => document.removeEventListener('dragend', onNativeDragEnd);
+  }, []);
 
   const filteredCategories = useMemo(() => {
     if (!search) return categories;
@@ -352,9 +356,9 @@ export default function CategoriesScreen() {
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {loading ? [1, 2, 3].map((i) => <Card key={i}><CardContent className="p-5"><Skeleton className="h-16 w-full" /></CardContent></Card>) : (
           <>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">إجمالي الفئات</p><p className="text-2xl font-bold">{totalCategories}</p></div><div className="p-3 rounded-lg bg-blue-50 text-blue-600"><FolderTree className="h-5 w-5" /></div></div></CardContent></Card>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">الفئات النشطة</p><p className="text-2xl font-bold">{activeCategories}</p></div><div className="p-3 rounded-lg bg-emerald-50 text-emerald-600"><FolderOpen className="h-5 w-5" /></div></div></CardContent></Card>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">الفئات الجذرية</p><p className="text-2xl font-bold">{rootCategories}</p></div><div className="p-3 rounded-lg bg-purple-50 text-purple-600"><Folder className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">إجمالي الفئات</p><p className="text-2xl font-bold">{totalCategories.toLocaleString('ar-EG')}</p></div><div className="p-3 rounded-lg bg-blue-50 text-blue-600"><FolderTree className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">الفئات النشطة</p><p className="text-2xl font-bold">{activeCategories.toLocaleString('ar-EG')}</p></div><div className="p-3 rounded-lg bg-emerald-50 text-emerald-600"><FolderOpen className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">الفئات الجذرية</p><p className="text-2xl font-bold">{rootCategories.toLocaleString('ar-EG')}</p></div><div className="p-3 rounded-lg bg-purple-50 text-purple-600"><Folder className="h-5 w-5" /></div></div></CardContent></Card>
           </>
         )}
       </motion.div>
@@ -370,7 +374,7 @@ export default function CategoriesScreen() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div variants={itemVariants} className={selectedCategory ? "lg:col-span-2" : "lg:col-span-3"}>
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><FolderTree className="h-4 w-4" />شجرة الفئات ({filteredCategories.length})</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><FolderTree className="h-4 w-4" />شجرة الفئات ({filteredCategories.length.toLocaleString('ar-EG')})</CardTitle></CardHeader>
             <CardContent className="p-2">
               {loading ? <div className="space-y-2 p-4">{[1,2,3,4,5,6].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div> : tree.length > 0 ? (
                 <div className="space-y-1">{tree.map((root) => <CategoryTreeNode key={root.id} category={root} depth={0} expanded={expanded} onToggleExpand={handleToggleExpand} onSelect={handleSelectCategory} selectedId={selectedId} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop} dragOverId={dragOverId} />)}</div>
@@ -383,7 +387,7 @@ export default function CategoriesScreen() {
           {selectedCategory && (
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="lg:col-span-1">
               <Card className="sticky top-4">
-                <CardHeader className="pb-3"><CardTitle className="text-base flex items-center justify-between"><span className="flex items-center gap-2"><Edit3 className="h-4 w-4" />تفاصيل الفئة</span><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedId(null)}><X className="h-4 w-4" /></Button></CardTitle></CardHeader>
+                <CardHeader className="pb-3"><CardTitle className="text-base flex items-center justify-between"><span className="flex items-center gap-2"><Edit3 className="h-4 w-4" />تفاصيل الفئة</span><Button variant="ghost" size="icon" className="h-7 w-7" aria-label="إغلاق التفاصيل" onClick={() => setSelectedId(null)}><X className="h-4 w-4" /></Button></CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground mb-1">المعرف</p><code className="text-sm font-mono font-semibold">#{selectedCategory.id}</code></div>
@@ -393,7 +397,7 @@ export default function CategoriesScreen() {
                     <div className="p-3 bg-muted/30 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">الاسم بالعربية</p><p className="text-sm font-medium">{selectedCategory.name_ar}</p></div>
                     <div className="p-3 bg-muted/30 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">الاسم بالإنجليزية</p><p className="text-sm font-medium">{selectedCategory.name_en}</p></div>
                     <div className="p-3 bg-muted/30 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">الفئة الأب</p><p className="text-sm font-medium">{selectedCategory.parent_id ? categories.find((c) => c.id === selectedCategory.parent_id)?.name_ar ?? "--" : "جذرية"}</p></div>
-                    <div className="p-3 bg-muted/30 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">عدد المنتجات</p><p className="text-sm font-bold">{selectedCategory.product_count}</p></div>
+                    <div className="p-3 bg-muted/30 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">عدد المنتجات</p><p className="text-sm font-bold">{selectedCategory.product_count.toLocaleString('ar-EG')}</p></div>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border"><span className="text-sm">الحالة (نشطة)</span><Switch checked={selectedCategory.is_active} disabled={saving} onCheckedChange={() => handleToggleActive(selectedCategory.id)} /></div>
                   <div className="flex gap-2">

@@ -741,6 +741,8 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
               <button
                 key={p}
                 onClick={() => handlePeriodChange(p)}
+                aria-label={`عرض بيانات ${periodLabels[p]}`}
+                aria-pressed={period === p}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
                   period === p
                     ? "bg-background text-foreground shadow-sm"
@@ -766,9 +768,9 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
               />
               تحديث
             </Button>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-label={`تحديث تلقائي بعد ${countdown.toLocaleString("ar-EG")} ثانية`}>
               <div className="relative w-5 h-5">
-                <svg className="w-5 h-5 -rotate-90" viewBox="0 0 20 20">
+                <svg className="w-5 h-5 -rotate-90" viewBox="0 0 20 20" aria-hidden="true">
                   <circle
                     cx="10"
                     cy="10"
@@ -792,7 +794,7 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
                   />
                 </svg>
               </div>
-              <span>{countdown} ث</span>
+              <span>{countdown.toLocaleString("ar-EG")} ث</span>
             </div>
           </div>
         </div>
@@ -1037,7 +1039,7 @@ export default function DashboardScreen({ onNavigate }: DashboardScreenProps) {
                         variant="outline"
                         className="text-[10px] font-mono"
                       >
-                        {bucket.count} عقد
+                        {formatArabicNumber(bucket.count)} عقد
                       </Badge>
                     </div>
                     <div className="h-2 w-full bg-white/60 rounded-full overflow-hidden mb-2">

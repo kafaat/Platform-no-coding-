@@ -137,7 +137,7 @@ export default function Sidebar({ activeScreen, onNavigate, collapsed, onToggle 
                   </motion.span>
                 )}
                 {!collapsed && item.badge && (
-                  <span className="mr-auto bg-destructive text-destructive-foreground text-[10px] rounded-full px-1.5 py-0.5 font-bold">
+                  <span className="ms-auto bg-destructive text-destructive-foreground text-[10px] rounded-full px-1.5 py-0.5 font-bold">
                     {item.badge}
                   </span>
                 )}

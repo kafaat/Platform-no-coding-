@@ -30,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import type { ProductComposition, CompositionPolicy } from "@/types";
 
 // --- Extended BOM types for display ---
@@ -257,7 +256,7 @@ function BOMTreeCard({
               </div>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-primary">{bom.totalComponents}</p>
+              <p className="text-2xl font-bold text-primary">{bom.totalComponents.toLocaleString('ar-EG')}</p>
               <p className="text-xs text-muted-foreground">مكونات</p>
             </div>
           </div>
@@ -303,11 +302,11 @@ export default function ManufacturingScreen() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled title="قريبا">
               <Settings2 className="h-4 w-4 ml-1" />
               إعدادات التكوين
             </Button>
-            <Button size="sm">
+            <Button size="sm" disabled title="قريبا">
               <Plus className="h-4 w-4 ml-1" />
               تكوين جديد
             </Button>
@@ -396,7 +395,7 @@ export default function ManufacturingScreen() {
                           <div className="text-center px-2">
                             <p className="text-xs text-muted-foreground">الكمية</p>
                             <p className="font-bold text-sm">
-                              {child.composition.qty} {child.unitName}
+                              {child.composition.qty.toLocaleString('ar-EG')} {child.unitName}
                             </p>
                           </div>
                           <div className="text-center px-2">
@@ -470,7 +469,7 @@ export default function ManufacturingScreen() {
                           {typeLabels[child.childType]}
                         </span>
                       </TableCell>
-                      <TableCell className="font-bold">{child.composition.qty}</TableCell>
+                      <TableCell className="font-bold">{child.composition.qty.toLocaleString('ar-EG')}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {child.unitName}
                       </TableCell>
@@ -503,7 +502,7 @@ export default function ManufacturingScreen() {
                   <div className="flex items-center gap-1.5">
                     <Info className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">إجمالي المكونات:</span>
-                    <span className="font-bold">{filteredChildren.length}</span>
+                    <span className="font-bold">{filteredChildren.length.toLocaleString('ar-EG')}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Percent className="h-4 w-4 text-muted-foreground" />

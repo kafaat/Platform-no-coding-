@@ -7,7 +7,6 @@ import {
   Eye,
   Edit3,
   Trash2,
-  MoreHorizontal,
   Calculator,
   ChevronLeft,
   ChevronRight,
@@ -22,7 +21,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -99,7 +97,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
           >
             {t.type === "success" ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
             {t.message}
-            <button onClick={() => onDismiss(t.id)} className="mr-2 hover:opacity-70">
+            <button onClick={() => onDismiss(t.id)} className="mr-2 hover:opacity-70" aria-label="إغلاق الإشعار">
               <X className="h-3 w-3" />
             </button>
           </motion.div>
@@ -514,7 +512,7 @@ export default function PricingScreen() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground font-medium">قوائم الأسعار</p>
-                    <p className="text-2xl font-bold">{priceLists.length}</p>
+                    <p className="text-2xl font-bold">{priceLists.length.toLocaleString("ar-EG")}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-blue-50 text-blue-600"><Tag className="h-5 w-5" /></div>
                 </div>
@@ -525,7 +523,7 @@ export default function PricingScreen() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground font-medium">قواعد التسعير</p>
-                    <p className="text-2xl font-bold">{priceRules.length}</p>
+                    <p className="text-2xl font-bold">{priceRules.length.toLocaleString("ar-EG")}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-purple-50 text-purple-600"><Calculator className="h-5 w-5" /></div>
                 </div>
@@ -536,7 +534,7 @@ export default function PricingScreen() {
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
                     <p className="text-sm text-muted-foreground font-medium">إجمالي المنتجات المسعّرة</p>
-                    <p className="text-2xl font-bold">{priceLists.reduce((sum, pl) => sum + pl.product_count, 0)}</p>
+                    <p className="text-2xl font-bold">{priceLists.reduce((sum, pl) => sum + pl.product_count, 0).toLocaleString("ar-EG")}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-emerald-50 text-emerald-600"><DollarSign className="h-5 w-5" /></div>
                 </div>
@@ -630,14 +628,14 @@ export default function PricingScreen() {
                         {priceList.valid_to ?? <span className="text-muted-foreground text-xs">مفتوحة</span>}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{priceList.product_count} منتج</Badge>
+                        <Badge variant="secondary">{priceList.product_count.toLocaleString("ar-EG")} منتج</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="عرض" onClick={(e) => { e.stopPropagation(); setSelectedListId(priceList.id); }}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="عرض" aria-label="عرض قائمة الأسعار" onClick={(e) => { e.stopPropagation(); setSelectedListId(priceList.id); }}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" title="نسخ" onClick={(e) => { e.stopPropagation(); handleDuplicateList(priceList); }}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="نسخ" aria-label="نسخ قائمة الأسعار" onClick={(e) => { e.stopPropagation(); handleDuplicateList(priceList); }}>
                             <Copy className="h-4 w-4" />
                           </Button>
                           <Button
@@ -645,6 +643,7 @@ export default function PricingScreen() {
                             size="icon"
                             className="h-8 w-8 text-destructive"
                             title="حذف"
+                            aria-label="حذف قائمة الأسعار"
                             onClick={(e) => { e.stopPropagation(); setDeleteDialog({ open: true, type: "list", id: priceList.id, name: priceList.name }); }}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -666,7 +665,7 @@ export default function PricingScreen() {
             )}
             <div className="flex items-center justify-between p-4 border-t">
               <p className="text-sm text-muted-foreground">
-                عرض {filteredLists.length} من {priceLists.length} قائمة
+                عرض {filteredLists.length.toLocaleString("ar-EG")} من {priceLists.length.toLocaleString("ar-EG")} قائمة
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" disabled>
@@ -746,13 +745,14 @@ export default function PricingScreen() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditRule(rule)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل القاعدة" onClick={() => openEditRule(rule)}>
                             <Edit3 className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive"
+                            aria-label="حذف القاعدة"
                             onClick={() => setDeleteDialog({ open: true, type: "rule", id: rule.id, name: `القاعدة #${rule.id}` })}
                           >
                             <Trash2 className="h-4 w-4" />

@@ -32,7 +32,7 @@ export const reservationsService = {
    */
   list(params?: ReservationListQuery): Promise<PaginatedResponse<Reservation>> {
     return apiClient.get<PaginatedResponse<Reservation>>('reservations', {
-      params: params as Record<string, string | number | boolean | undefined>,
+      params: params as unknown as Record<string, string | number | boolean | undefined>,
     });
   },
 
@@ -75,7 +75,7 @@ export const reservationsService = {
    */
   checkAvailability(params: AvailabilityQuery): Promise<AvailabilityResponse> {
     return apiClient.get<AvailabilityResponse>('reservations/availability', {
-      params: params as Record<string, string | number | boolean | undefined>,
+      params: params as unknown as Record<string, string | number | boolean | undefined>,
     });
   },
 

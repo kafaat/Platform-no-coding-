@@ -14,6 +14,7 @@
 import React, {
   createContext,
   useContext,
+  useEffect,
   useReducer,
   useCallback,
   useMemo,
@@ -103,6 +104,10 @@ function appReducer(state: AppState, action: AppAction): AppState {
 // Default State
 // ============================================================
 
+/** localStorage keys for persisted preferences */
+const LS_DARK_MODE = 'dps_dark_mode';
+const LS_LOCALE = 'dps_locale';
+
 const defaultState: AppState = {
   tenantId: 1,
   locale: 'ar', // Arabic primary per project conventions
@@ -110,6 +115,25 @@ const defaultState: AppState = {
   sidebarCollapsed: false,
   user: null,
 };
+
+/** Read persisted preferences from localStorage to build initial state. */
+function getPersistedState(): Partial<AppState> {
+  if (typeof window === 'undefined' || !window.localStorage) return {};
+
+  const persisted: Partial<AppState> = {};
+
+  const storedDarkMode = localStorage.getItem(LS_DARK_MODE);
+  if (storedDarkMode !== null) {
+    persisted.darkMode = storedDarkMode === 'true';
+  }
+
+  const storedLocale = localStorage.getItem(LS_LOCALE);
+  if (storedLocale === 'ar' || storedLocale === 'en') {
+    persisted.locale = storedLocale;
+  }
+
+  return persisted;
+}
 
 // ============================================================
 // Context
@@ -140,25 +164,34 @@ export interface AppProviderProps {
 export function AppProvider({ initialState, children }: AppProviderProps) {
   const [state, dispatch] = useReducer(appReducer, {
     ...defaultState,
+    ...getPersistedState(),
     ...initialState,
   });
 
-  // ---- Dispatch helpers ----
+  // ---- Sync document with state (also handles initial mount) ----
 
-  const setLocale = useCallback((locale: 'ar' | 'en') => {
-    // Update document direction for RTL support.
-    document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = locale;
-    dispatch({ type: 'SET_LOCALE', payload: locale });
-  }, []);
+  useEffect(() => {
+    document.documentElement.dir = state.locale === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = state.locale;
+  }, [state.locale]);
 
-  const setDarkMode = useCallback((dark: boolean) => {
-    // Toggle the Tailwind dark class on the root element.
-    if (dark) {
+  useEffect(() => {
+    if (state.darkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+  }, [state.darkMode]);
+
+  // ---- Dispatch helpers ----
+
+  const setLocale = useCallback((locale: 'ar' | 'en') => {
+    try { localStorage.setItem(LS_LOCALE, locale); } catch { /* quota exceeded */ }
+    dispatch({ type: 'SET_LOCALE', payload: locale });
+  }, []);
+
+  const setDarkMode = useCallback((dark: boolean) => {
+    try { localStorage.setItem(LS_DARK_MODE, String(dark)); } catch { /* quota exceeded */ }
     dispatch({ type: 'SET_DARK_MODE', payload: dark });
   }, []);
 

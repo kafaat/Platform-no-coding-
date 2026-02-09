@@ -11,8 +11,7 @@ import {
   PhoneCall,
   Package,
   Settings,
-  ChevronLeft,
-  Edit3,
+  SlidersHorizontal,
   X,
   Check,
   AlertTriangle,
@@ -64,7 +63,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
           >
             {t.type === "success" ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
             {t.message}
-            <button onClick={() => onDismiss(t.id)} className="mr-2 hover:opacity-70"><X className="h-3 w-3" /></button>
+            <button onClick={() => onDismiss(t.id)} className="mr-2 hover:opacity-70" aria-label="إغلاق الإشعار"><X className="h-3 w-3" /></button>
           </motion.div>
         ))}
       </AnimatePresence>
@@ -199,7 +198,7 @@ function ChannelCard({ channel, isSelected, onSelect, onToggle, saving }: {
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Package className="h-4 w-4" /><span>{channel.product_count} منتج</span>
+              <Package className="h-4 w-4" /><span>{channel.product_count.toLocaleString("ar-EG")} منتج</span>
             </div>
             <Badge variant="outline" className={channel.enabled ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}>
               {channel.enabled ? "مفعّل" : "معطّل"}
@@ -244,7 +243,7 @@ function ChannelDetail({ channel, onClose, onToggleFlag, onUpdateLimit, onDrillD
             <p className="text-sm text-muted-foreground">{channel.name_en}</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}><X className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="إغلاق تفاصيل القناة" onClick={onClose}><X className="h-4 w-4" /></Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -254,7 +253,7 @@ function ChannelDetail({ channel, onClose, onToggleFlag, onUpdateLimit, onDrillD
         </div>
         <div className="p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors" onClick={() => onDrillDown(channel.code)}>
           <p className="text-xs text-muted-foreground mb-1">عدد المنتجات</p>
-          <p className="text-sm font-semibold text-primary underline">{channel.product_count}</p>
+          <p className="text-sm font-semibold text-primary underline">{channel.product_count.toLocaleString("ar-EG")}</p>
         </div>
       </div>
 
@@ -273,7 +272,7 @@ function ChannelDetail({ channel, onClose, onToggleFlag, onUpdateLimit, onDrillD
 
       {/* Limits */}
       <div>
-        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><ChevronLeft className="h-4 w-4" />حدود القناة</h4>
+        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><SlidersHorizontal className="h-4 w-4" />حدود القناة</h4>
         <div className="space-y-2">
           {Object.entries(channel.limits).map(([key, value]) => (
             <div key={key} className="flex items-center justify-between p-2.5 bg-muted/30 rounded-lg border">
@@ -421,9 +420,9 @@ export default function ChannelsScreen() {
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {loading ? [1, 2, 3].map((i) => <Card key={i}><CardContent className="p-5"><Skeleton className="h-16 w-full" /></CardContent></Card>) : (
           <>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">إجمالي القنوات</p><p className="text-2xl font-bold">{channels.length}</p></div><div className="p-3 rounded-lg bg-blue-50 text-blue-600"><Radio className="h-5 w-5" /></div></div></CardContent></Card>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">القنوات المفعّلة</p><p className="text-2xl font-bold">{activeCount}</p></div><div className="p-3 rounded-lg bg-emerald-50 text-emerald-600"><Globe className="h-5 w-5" /></div></div></CardContent></Card>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">إجمالي المنتجات المرتبطة</p><p className="text-2xl font-bold">{totalProducts}</p></div><div className="p-3 rounded-lg bg-purple-50 text-purple-600"><Package className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">إجمالي القنوات</p><p className="text-2xl font-bold">{channels.length.toLocaleString("ar-EG")}</p></div><div className="p-3 rounded-lg bg-blue-50 text-blue-600"><Radio className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">القنوات المفعّلة</p><p className="text-2xl font-bold">{activeCount.toLocaleString("ar-EG")}</p></div><div className="p-3 rounded-lg bg-emerald-50 text-emerald-600"><Globe className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">إجمالي المنتجات المرتبطة</p><p className="text-2xl font-bold">{totalProducts.toLocaleString("ar-EG")}</p></div><div className="p-3 rounded-lg bg-purple-50 text-purple-600"><Package className="h-5 w-5" /></div></div></CardContent></Card>
           </>
         )}
       </motion.div>

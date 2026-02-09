@@ -4,7 +4,6 @@ import {
   FileText,
   Plus,
   Search,
-  Filter,
   Download,
   Eye,
   DollarSign,
@@ -142,7 +141,7 @@ function AgingBar({ days }: { days: number }) {
           transition={{ duration: 0.6, ease: "easeOut" }}
         />
       </div>
-      <span className="text-[10px] text-muted-foreground">{days}d</span>
+      <span className="text-[10px] text-muted-foreground">{days.toLocaleString('ar-EG')} يوم</span>
     </div>
   );
 }
@@ -654,7 +653,7 @@ function ContractDetail({
           <p className="text-sm text-muted-foreground">{contract.customer_name} — {contract.product_name}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled title="قريباً">
             <Download className="h-4 w-4 ml-1" />
             كشف حساب
           </Button>
@@ -722,7 +721,7 @@ function ContractDetail({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="p-4 rounded-lg bg-muted/50">
                     <p className="text-xs text-muted-foreground">المبلغ الأصلي</p>
-                    <p className="text-lg font-bold">{contract.principal.toLocaleString()} ر.ي</p>
+                    <p className="text-lg font-bold">{contract.principal.toLocaleString('ar-EG')} ر.ي</p>
                   </div>
                   <div className="p-4 rounded-lg bg-muted/50">
                     <p className="text-xs text-muted-foreground">نوع الفائدة</p>
@@ -753,15 +752,15 @@ function ContractDetail({
                     <div className="grid grid-cols-3 gap-3 text-sm">
                       <div>
                         <p className="text-xs text-blue-600">الأصل المتبقي</p>
-                        <p className="font-semibold">{remainingPrincipal.toLocaleString()} ر.ي</p>
+                        <p className="font-semibold">{remainingPrincipal.toLocaleString('ar-EG')} ر.ي</p>
                       </div>
                       <div>
                         <p className="text-xs text-blue-600">الفوائد المستحقة</p>
-                        <p className="font-semibold">{accruedInterest.toLocaleString()} ر.ي</p>
+                        <p className="font-semibold">{accruedInterest.toLocaleString('ar-EG')} ر.ي</p>
                       </div>
                       <div>
                         <p className="text-xs text-blue-600">إجمالي التسوية</p>
-                        <p className="font-bold text-blue-800">{totalSettlement.toLocaleString()} ر.ي</p>
+                        <p className="font-bold text-blue-800">{totalSettlement.toLocaleString('ar-EG')} ر.ي</p>
                       </div>
                     </div>
                   </div>
@@ -795,10 +794,10 @@ function ContractDetail({
                         >
                           <td className="p-2 font-mono">{inst.seq}</td>
                           <td className="p-2">{inst.due_on}</td>
-                          <td className="p-2">{inst.principal_due.toLocaleString()}</td>
-                          <td className="p-2">{inst.interest_due.toLocaleString()}</td>
-                          <td className="p-2">{inst.fee_due.toLocaleString()}</td>
-                          <td className="p-2">{(inst.paid_principal + inst.paid_interest).toLocaleString()}</td>
+                          <td className="p-2">{inst.principal_due.toLocaleString('ar-EG')}</td>
+                          <td className="p-2">{inst.interest_due.toLocaleString('ar-EG')}</td>
+                          <td className="p-2">{inst.fee_due.toLocaleString('ar-EG')}</td>
+                          <td className="p-2">{(inst.paid_principal + inst.paid_interest).toLocaleString('ar-EG')}</td>
                           <td className="p-2">
                             <InstallmentStatusBadge
                               status={inst.status}
@@ -815,6 +814,7 @@ function ContractDetail({
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
+                                aria-label="تسجيل دفعة للقسط"
                                 onClick={() => onRecordPayment(inst)}
                               >
                                 <DollarSign className="h-3.5 w-3.5" />
@@ -852,9 +852,9 @@ function ContractDetail({
                       paymentHistory.map((pay) => (
                         <tr key={pay.ref} className="border-b">
                           <td className="p-2">{pay.date}</td>
-                          <td className="p-2">{pay.principal.toLocaleString()}</td>
-                          <td className="p-2">{pay.interest.toLocaleString()}</td>
-                          <td className="p-2">{pay.fee.toLocaleString()}</td>
+                          <td className="p-2">{pay.principal.toLocaleString('ar-EG')}</td>
+                          <td className="p-2">{pay.interest.toLocaleString('ar-EG')}</td>
+                          <td className="p-2">{pay.fee.toLocaleString('ar-EG')}</td>
                           <td className="p-2">{pay.channel}</td>
                           <td className="p-2 font-mono text-xs">{pay.ref}</td>
                         </tr>
@@ -895,9 +895,9 @@ function ContractDetail({
                             <tr key={i} className="border-b">
                               <td className="p-2">{entry.date}</td>
                               <td className="p-2">{entry.desc}</td>
-                              <td className="p-2 text-red-600">{entry.debit > 0 ? entry.debit.toLocaleString() : "-"}</td>
-                              <td className="p-2 text-green-600">{entry.credit > 0 ? entry.credit.toLocaleString() : "-"}</td>
-                              <td className="p-2 font-medium">{balance.toLocaleString()}</td>
+                              <td className="p-2 text-red-600">{entry.debit > 0 ? entry.debit.toLocaleString('ar-EG') : "-"}</td>
+                              <td className="p-2 text-green-600">{entry.credit > 0 ? entry.credit.toLocaleString('ar-EG') : "-"}</td>
+                              <td className="p-2 font-medium">{balance.toLocaleString('ar-EG')}</td>
                             </tr>
                           );
                         });
@@ -975,7 +975,7 @@ function ContractDetail({
                         <td className="p-2"><span className="px-2 py-0.5 rounded bg-muted text-xs">DISBURSEMENT</span></td>
                         <td className="p-2 font-mono text-xs">1101</td>
                         <td className="p-2 font-mono text-xs">1001</td>
-                        <td className="p-2">{contract.principal.toLocaleString()}</td>
+                        <td className="p-2">{contract.principal.toLocaleString('ar-EG')}</td>
                         <td className="p-2 font-mono text-xs">SL-001</td>
                       </tr>
                       {paymentHistory.map((p, idx) => (
@@ -984,7 +984,7 @@ function ContractDetail({
                           <td className="p-2"><span className="px-2 py-0.5 rounded bg-muted text-xs">PAYMENT</span></td>
                           <td className="p-2 font-mono text-xs">1001</td>
                           <td className="p-2 font-mono text-xs">1101</td>
-                          <td className="p-2">{p.principal.toLocaleString()}</td>
+                          <td className="p-2">{p.principal.toLocaleString('ar-EG')}</td>
                           <td className="p-2 font-mono text-xs">SL-{String(idx + 2).padStart(3, "0")}</td>
                         </tr>
                       ))}
@@ -1150,7 +1150,7 @@ export default function Contracts() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled title="قريباً">
             <Download className="h-4 w-4 ml-1" />
             تصدير
           </Button>
@@ -1176,7 +1176,7 @@ export default function Contracts() {
                   animate={{ scale: 1 }}
                   className="text-2xl font-bold"
                 >
-                  {activeCount}
+                  {activeCount.toLocaleString('ar-EG')}
                 </motion.p>
               </CardContent>
             </Card>
@@ -1185,21 +1185,21 @@ export default function Contracts() {
                 <p className="text-xs text-muted-foreground">إجمالي المبالغ المصروفة</p>
                 <p className="text-2xl font-bold">
                   {totalDisbursed >= 1000000
-                    ? `${(totalDisbursed / 1000000).toFixed(0)}M ر.ي`
-                    : `${totalDisbursed.toLocaleString()} ر.ي`}
+                    ? `${Math.round(totalDisbursed / 1000000).toLocaleString('ar-EG')}M ر.ي`
+                    : `${totalDisbursed.toLocaleString('ar-EG')} ر.ي`}
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">عقود متأخرة</p>
-                <p className="text-2xl font-bold text-orange-600">{arrearsCount}</p>
+                <p className="text-2xl font-bold text-orange-600">{arrearsCount.toLocaleString('ar-EG')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">نسبة التحصيل</p>
-                <p className="text-2xl font-bold text-green-600">{collectionRate}%</p>
+                <p className="text-2xl font-bold text-green-600">{collectionRate.toLocaleString('ar-EG')}%</p>
               </CardContent>
             </Card>
           </>
@@ -1281,7 +1281,7 @@ export default function Contracts() {
                       <td className="p-3 font-mono text-xs">{contract.contract_number}</td>
                       <td className="p-3">{contract.customer_name}</td>
                       <td className="p-3 text-muted-foreground">{contract.product_name}</td>
-                      <td className="p-3">{contract.principal.toLocaleString()} ر.ي</td>
+                      <td className="p-3">{contract.principal.toLocaleString('ar-EG')} ر.ي</td>
                       <td className="p-3"><ContractStatusBadge status={contract.status} /></td>
                       <td className="p-3 text-xs">{contract.interest_type === "REDUCING" ? "تنازلية" : contract.interest_type === "FLAT" ? "ثابتة" : contract.interest_type}</td>
                       <td className="p-3 text-xs">{contract.next_due_date}</td>
@@ -1295,6 +1295,7 @@ export default function Contracts() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
+                            aria-label="عرض تفاصيل العقد"
                             onClick={() => setSelectedContract(contract)}
                           >
                             <Eye className="h-4 w-4" />
@@ -1304,6 +1305,7 @@ export default function Contracts() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-destructive hover:text-destructive"
+                              aria-label="حذف العقد"
                               onClick={() => handleDeleteContract(contract.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1328,17 +1330,19 @@ export default function Contracts() {
                 variant="outline"
                 size="sm"
                 disabled={page <= 1}
+                aria-label="الصفحة السابقة"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <span className="text-sm px-3">
-                صفحة {page} من {totalPages}
+                صفحة {page.toLocaleString('ar-EG')} من {totalPages.toLocaleString('ar-EG')}
               </span>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={page >= totalPages}
+                aria-label="الصفحة التالية"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               >
                 <ChevronLeft className="h-4 w-4" />

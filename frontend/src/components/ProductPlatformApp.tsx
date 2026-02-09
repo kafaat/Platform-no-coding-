@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, Component } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Sidebar from "@/components/Sidebar";
 import HeaderBar from "@/components/HeaderBar";
@@ -23,6 +24,51 @@ const pageVariants = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" } },
   exit: { opacity: 0, y: -8, transition: { duration: 0.15 } },
 };
+
+// ---- Error Boundary for screen-level rendering errors ----
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ScreenErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Screen render error:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <p className="text-lg font-semibold text-destructive mb-2">
+            حدث خطأ غير متوقع
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">
+            {this.state.error?.message ?? 'Unknown error'}
+          </p>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm"
+          >
+            إعادة المحاولة
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function ProductPlatformApp() {
   const [activeScreen, setActiveScreen] = useState<ScreenId>("dashboard");
@@ -96,7 +142,9 @@ export default function ProductPlatformApp() {
               animate="animate"
               exit="exit"
             >
-              {renderScreen()}
+              <ScreenErrorBoundary>
+                {renderScreen()}
+              </ScreenErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </div>

@@ -5,14 +5,12 @@ import {
   Plus,
   Search,
   Eye,
-  Edit3,
   Trash2,
   ChevronLeft,
   ChevronRight,
   GitBranch,
   Activity,
   RefreshCcw,
-  Copy,
   AlertCircle,
   CheckCircle2,
   Check,
@@ -103,7 +101,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
           >
             {t.type === "success" ? <Check className="h-4 w-4" /> : t.type === "warning" ? <AlertTriangle className="h-4 w-4" /> : <X className="h-4 w-4" />}
             {t.message}
-            <button onClick={() => onDismiss(t.id)} className="mr-2 hover:opacity-70"><X className="h-3 w-3" /></button>
+            <button onClick={() => onDismiss(t.id)} className="mr-2 hover:opacity-70" aria-label="إغلاق الإشعار"><X className="h-3 w-3" /></button>
           </motion.div>
         ))}
       </AnimatePresence>
@@ -366,8 +364,8 @@ export default function NumberingScreen() {
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {loading ? [1, 2, 3].map((i) => <Card key={i}><CardContent className="p-5"><Skeleton className="h-16 w-full" /></CardContent></Card>) : (
           <>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">المخططات</p><p className="text-2xl font-bold">{schemes.length}</p></div><div className="p-3 rounded-lg bg-blue-50 text-blue-600"><Hash className="h-5 w-5" /></div></div></CardContent></Card>
-            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">التسلسلات النشطة</p><p className="text-2xl font-bold">{sequences.filter((s) => s.status === "ACTIVE").length}</p></div><div className="p-3 rounded-lg bg-emerald-50 text-emerald-600"><Activity className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">المخططات</p><p className="text-2xl font-bold">{schemes.length.toLocaleString("ar-EG")}</p></div><div className="p-3 rounded-lg bg-blue-50 text-blue-600"><Hash className="h-5 w-5" /></div></div></CardContent></Card>
+            <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">التسلسلات النشطة</p><p className="text-2xl font-bold">{sequences.filter((s) => s.status === "ACTIVE").length.toLocaleString("ar-EG")}</p></div><div className="p-3 rounded-lg bg-emerald-50 text-emerald-600"><Activity className="h-5 w-5" /></div></div></CardContent></Card>
             <Card className="hover:shadow-md transition-shadow"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="space-y-1"><p className="text-sm text-muted-foreground font-medium">إجمالي الأرقام المولّدة</p><p className="text-2xl font-bold">{sequences.reduce((sum, s) => sum + s.current_value, 0).toLocaleString("ar-EG")}</p></div><div className="p-3 rounded-lg bg-purple-50 text-purple-600"><GitBranch className="h-5 w-5" /></div></div></CardContent></Card>
           </>
         )}
@@ -389,7 +387,7 @@ export default function NumberingScreen() {
                 <div className="flex items-center gap-2">
                   <div className="text-center">
                     <p className="text-xs text-green-700">ينتهي خلال</p>
-                    <p className="text-2xl font-bold font-mono text-green-900">{reservedNumber.countdown}s</p>
+                    <p className="text-2xl font-bold font-mono text-green-900">{reservedNumber.countdown.toLocaleString("ar-EG")} ث</p>
                   </div>
                   <div className="w-12 h-12 rounded-full border-4 border-green-300 flex items-center justify-center">
                     <svg className="w-10 h-10 -rotate-90">
@@ -459,12 +457,14 @@ export default function NumberingScreen() {
                         <div className="flex items-center justify-center gap-1">
                           <Button variant="outline" size="sm" className="h-8 text-xs gap-1"
                             disabled={reservingSchemeId === scheme.id}
+                            aria-label={`حجز رقم من ${scheme.code}`}
                             onClick={(e) => { e.stopPropagation(); handleReserveNumber(scheme.id); }}
                           >
                             {reservingSchemeId === scheme.id ? <span className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-full" /> : <Play className="h-3 w-3" />}
                             حجز رقم
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+                            aria-label={`حذف المخطط ${scheme.code}`}
                             onClick={(e) => { e.stopPropagation(); setDeleteDialog({ open: true, id: scheme.id, name: scheme.code }); }}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -482,7 +482,7 @@ export default function NumberingScreen() {
               </Table>
             )}
             <div className="flex items-center justify-between p-4 border-t">
-              <p className="text-sm text-muted-foreground">عرض {filteredSchemes.length} من {schemes.length} مخطط</p>
+              <p className="text-sm text-muted-foreground">عرض {filteredSchemes.length.toLocaleString("ar-EG")} من {schemes.length.toLocaleString("ar-EG")} مخطط</p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" disabled><ChevronRight className="h-4 w-4" />السابق</Button>
                 <span className="text-sm px-3">صفحة 1 من 1</span>
@@ -530,6 +530,7 @@ export default function NumberingScreen() {
                       <TableCell>
                         <div className="flex items-center justify-center gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" title="إعادة تعيين"
+                            aria-label="إعادة تعيين التسلسل"
                             onClick={() => setResetDialog({ open: true, seqId: seq.id, schemeName: seq.scheme_code })}
                           >
                             <RotateCcw className="h-4 w-4" />

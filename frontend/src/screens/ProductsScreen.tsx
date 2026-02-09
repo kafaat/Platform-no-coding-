@@ -247,6 +247,7 @@ function StatusBadge({
       onClick={onClick}
       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-gray-300 transition-all ${config.color}`}
       title="انقر لتغيير الحالة"
+      aria-label={`الحالة: ${config.ar} — انقر لتغيير الحالة`}
     >
       {config.ar}
     </button>
@@ -723,6 +724,7 @@ export default function ProductsScreen({ onNavigate }: ProductsScreenProps) {
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   className="pr-9"
+                  aria-label="بحث في المنتجات"
                 />
               </div>
               <Select
@@ -778,7 +780,7 @@ export default function ProductsScreen({ onNavigate }: ProductsScreenProps) {
                   <p className="text-xs text-muted-foreground font-medium">
                     {stat.label}
                   </p>
-                  <p className="text-2xl font-bold mt-1">{stat.value}</p>
+                  <p className="text-2xl font-bold mt-1">{stat.value.toLocaleString("ar-EG")}</p>
                 </div>
                 <div className={`p-2.5 rounded-lg ${stat.color}`}>
                   {stat.icon}
@@ -794,9 +796,9 @@ export default function ProductsScreen({ onNavigate }: ProductsScreenProps) {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
-              <span>قائمة المنتجات ({isLoading ? "..." : filtered.length})</span>
+              <span>قائمة المنتجات ({isLoading ? "..." : filtered.length.toLocaleString("ar-EG")})</span>
               <Badge variant="outline" className="font-normal text-xs">
-                صفحة {safePage} من {totalPages}
+                صفحة {safePage.toLocaleString("ar-EG")} من {totalPages.toLocaleString("ar-EG")}
               </Badge>
             </CardTitle>
           </CardHeader>
@@ -911,6 +913,7 @@ export default function ProductsScreen({ onNavigate }: ProductsScreenProps) {
                               size="icon"
                               className="h-8 w-8"
                               title="عرض"
+                              aria-label={`عرض ${product.name_ar}`}
                               onClick={() => onNavigate("product-editor")}
                             >
                               <Eye className="h-4 w-4" />
@@ -920,6 +923,7 @@ export default function ProductsScreen({ onNavigate }: ProductsScreenProps) {
                               size="icon"
                               className="h-8 w-8"
                               title="تعديل"
+                              aria-label={`تعديل ${product.name_ar}`}
                               onClick={() => onNavigate("product-editor")}
                             >
                               <Edit3 className="h-4 w-4" />
@@ -929,6 +933,7 @@ export default function ProductsScreen({ onNavigate }: ProductsScreenProps) {
                               size="icon"
                               className="h-8 w-8 text-destructive hover:text-destructive"
                               title="حذف"
+                              aria-label={`حذف ${product.name_ar}`}
                               onClick={() => setDeleteTarget(product)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -981,12 +986,12 @@ export default function ProductsScreen({ onNavigate }: ProductsScreenProps) {
                     <p className="text-sm text-muted-foreground">
                       عرض{" "}
                       {sorted.length > 0
-                        ? `${(safePage - 1) * pageSize + 1}-${Math.min(
+                        ? `${((safePage - 1) * pageSize + 1).toLocaleString("ar-EG")}-${Math.min(
                             safePage * pageSize,
                             sorted.length
-                          )}`
-                        : "0"}{" "}
-                      من {sorted.length} منتج
+                          ).toLocaleString("ar-EG")}`
+                        : "٠"}{" "}
+                      من {sorted.length.toLocaleString("ar-EG")} منتج
                     </p>
                     <Select
                       value={String(pageSize)}
@@ -1012,6 +1017,7 @@ export default function ProductsScreen({ onNavigate }: ProductsScreenProps) {
                       size="sm"
                       disabled={safePage <= 1}
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      aria-label="الصفحة السابقة"
                     >
                       <ChevronRight className="h-4 w-4" />
                       السابق
@@ -1047,8 +1053,10 @@ export default function ProductsScreen({ onNavigate }: ProductsScreenProps) {
                               size="sm"
                               className="h-8 w-8 p-0 text-xs"
                               onClick={() => setCurrentPage(item)}
+                              aria-label={`صفحة ${item.toLocaleString("ar-EG")}`}
+                              aria-current={safePage === item ? "page" : undefined}
                             >
-                              {item}
+                              {item.toLocaleString("ar-EG")}
                             </Button>
                           )
                         )}
@@ -1060,6 +1068,7 @@ export default function ProductsScreen({ onNavigate }: ProductsScreenProps) {
                       onClick={() =>
                         setCurrentPage((p) => Math.min(totalPages, p + 1))
                       }
+                      aria-label="الصفحة التالية"
                     >
                       التالي
                       <ChevronLeft className="h-4 w-4" />
