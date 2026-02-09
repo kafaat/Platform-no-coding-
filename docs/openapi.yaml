@@ -56,6 +56,14 @@ tags:
     description: Audit logs, state transitions, and domain events (التدقيق)
   - name: Accounting
     description: Accounting templates, product mappings, and subledger entries (المحاسبة)
+  - name: Eligibility
+    description: Eligibility rules, document requirements, and collateral requirements (الاهلية)
+  - name: Composition
+    description: BOM/Bundle/KIT product composition management (تركيب المنتجات)
+  - name: Identifiers
+    description: LOT/Serial product identifier generation and tracking (معرفات المنتجات)
+  - name: Schedules
+    description: Reusable schedule templates for installments, billing, tasks (قوالب الجدولة)
 
 paths:
   # ==========================================================================
@@ -251,6 +259,28 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    delete:
+      tags: [Products]
+      summary: Delete a product
+      description: |
+        Soft-deletes a product. Only DRAFT products can be deleted permanently.
+        حذف منتج.
+      operationId: deleteProduct
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      responses:
+        '204':
+          description: Product deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /products/{id}/status:
     put:
       tags: [Products]
@@ -402,6 +432,28 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /products/{id}/attributes:
+    get:
+      tags: [Attributes]
+      summary: Get attribute values for a product
+      description: |
+        Returns all EAV attribute values for a product.
+        جلب قيم السمات الديناميكية للمنتج.
+      operationId: getProductAttributes
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      responses:
+        '200':
+          description: Attribute values
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttributeValue'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
     put:
       tags: [Attributes]
       summary: Set attribute values for a product
@@ -3312,6 +3364,1351 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  # ==========================================================================
+  # Product Delete
+  # ==========================================================================
+  # Note: DELETE /products/{id} is defined under /products/{id} path above
+  # but the delete operation needs to be added there. Adding as separate entry.
+
+  # ==========================================================================
+  # Product Versions (additional)
+  # ==========================================================================
+  /products/{id}/versions/{versionNo}:
+    get:
+      tags: [Products]
+      summary: Get a specific product version
+      description: |
+        Returns details of a specific product version by version number.
+        جلب تفاصيل اصدار محدد من المنتج.
+      operationId: getProductVersion
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+        - name: versionNo
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Version number (رقم الاصدار)
+      responses:
+        '200':
+          description: Version details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductVersion'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /products/{id}/versions/diff:
+    get:
+      tags: [Products]
+      summary: Compare two product versions (FR-141)
+      description: |
+        Returns a field-level diff between two versions of a product.
+        مقارنة اصدارين من المنتج على مستوى الحقول.
+      operationId: compareProductVersions
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: Base version number (رقم الاصدار الاساسي)
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: Target version number (رقم الاصدار المستهدف)
+      responses:
+        '200':
+          description: Version comparison result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  product_id:
+                    type: integer
+                  from_version:
+                    type: integer
+                  to_version:
+                    type: integer
+                  changes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        old_value: {}
+                        new_value: {}
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================================================
+  # Pricing Rules
+  # ==========================================================================
+  /pricing/price-lists/{id}/rules:
+    get:
+      tags: [Pricing]
+      summary: List pricing rules for a price list
+      description: |
+        Returns CEL-based pricing rules linked to a specific price list.
+        قواعد التسعير المرتبطة بقائمة اسعار.
+      operationId: listPriceRules
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/PriceListIdPath'
+      responses:
+        '200':
+          description: List of pricing rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PriceRule'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Pricing]
+      summary: Create a pricing rule
+      description: |
+        Adds a CEL-based pricing rule to a price list.
+        اضافة قاعدة تسعير CEL لقائمة اسعار.
+      operationId: createPriceRule
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/PriceListIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, cel_expression, priority]
+              properties:
+                name:
+                  type: string
+                cel_expression:
+                  type: string
+                priority:
+                  type: integer
+                is_active:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /pricing/price-lists/{id}/rules/{ruleId}:
+    put:
+      tags: [Pricing]
+      summary: Update a pricing rule
+      operationId: updatePriceRule
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/PriceListIdPath'
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Rule ID (معرف القاعدة)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                cel_expression:
+                  type: string
+                priority:
+                  type: integer
+                is_active:
+                  type: boolean
+      responses:
+        '200':
+          description: Rule updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceRule'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Pricing]
+      summary: Delete a pricing rule
+      operationId: deletePriceRule
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/PriceListIdPath'
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Rule deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================================================
+  # Category Attribute Sets (FR-002)
+  # ==========================================================================
+  /categories/{id}/attribute-sets:
+    get:
+      tags: [Categories]
+      summary: Get attribute sets linked to a category
+      description: |
+        Returns attribute sets inherited by products in this category (FR-002).
+        جلب مجموعات السمات المرتبطة بالفئة.
+      operationId: getCategoryAttributeSets
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/CategoryIdPath'
+      responses:
+        '200':
+          description: List of attribute sets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttributeSet'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Categories]
+      summary: Link an attribute set to a category
+      operationId: linkCategoryAttributeSet
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/CategoryIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [set_id]
+              properties:
+                set_id:
+                  type: integer
+                  description: Attribute set ID (معرف مجموعة السمات)
+      responses:
+        '201':
+          description: Attribute set linked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  category_id:
+                    type: integer
+                  set_id:
+                    type: integer
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /categories/{id}/attribute-sets/{setId}:
+    delete:
+      tags: [Categories]
+      summary: Unlink an attribute set from a category
+      operationId: unlinkCategoryAttributeSet
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/CategoryIdPath'
+        - name: setId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Attribute set ID (معرف مجموعة السمات)
+      responses:
+        '204':
+          description: Attribute set unlinked
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /categories/{id}/toggle-active:
+    patch:
+      tags: [Categories]
+      summary: Toggle category active/inactive status
+      description: |
+        Toggles category active status. Cannot deactivate categories with active products (BR-09).
+        تبديل حالة الفئة بين نشطة وغير نشطة.
+      operationId: toggleCategoryActive
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/CategoryIdPath'
+      responses:
+        '200':
+          description: Category toggled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductCategory'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ==========================================================================
+  # Eligibility
+  # ==========================================================================
+  /eligibility/rules:
+    get:
+      tags: [Eligibility]
+      summary: List eligibility rules
+      description: |
+        Returns CEL-based eligibility rules with pagination.
+        قائمة قواعد الاهلية.
+      operationId: listEligibilityRules
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: List of eligibility rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EligibilityRule'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+
+    post:
+      tags: [Eligibility]
+      summary: Create an eligibility rule
+      operationId: createEligibilityRule
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, condition_cel]
+              properties:
+                name:
+                  type: string
+                condition_cel:
+                  type: string
+                  description: "CEL expression, e.g. customer.score >= 600"
+                params:
+                  type: object
+            example:
+              name: "Minimum Credit Score"
+              condition_cel: "customer.score >= 600 && customer.kyc_level == 'FULL'"
+      responses:
+        '201':
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EligibilityRule'
+
+  /eligibility/rules/{id}:
+    get:
+      tags: [Eligibility]
+      summary: Get an eligibility rule
+      operationId: getEligibilityRule
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rule details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EligibilityRule'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Eligibility]
+      summary: Update an eligibility rule
+      operationId: updateEligibilityRule
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                condition_cel:
+                  type: string
+                params:
+                  type: object
+      responses:
+        '200':
+          description: Rule updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EligibilityRule'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Eligibility]
+      summary: Delete an eligibility rule
+      operationId: deleteEligibilityRule
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Rule deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /eligibility/documents:
+    get:
+      tags: [Eligibility]
+      summary: List document requirements
+      operationId: listDocumentRequirements
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: mandatory
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: List of document requirements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DocumentRequirement'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+
+    post:
+      tags: [Eligibility]
+      summary: Create a document requirement
+      operationId: createDocumentRequirement
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                mandatory:
+                  type: boolean
+                params:
+                  type: object
+      responses:
+        '201':
+          description: Document requirement created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentRequirement'
+
+  /eligibility/documents/{id}:
+    get:
+      tags: [Eligibility]
+      summary: Get a document requirement
+      operationId: getDocumentRequirement
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Document requirement details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentRequirement'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Eligibility]
+      summary: Update a document requirement
+      operationId: updateDocumentRequirement
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                mandatory:
+                  type: boolean
+                params:
+                  type: object
+      responses:
+        '200':
+          description: Document requirement updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentRequirement'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Eligibility]
+      summary: Delete a document requirement
+      operationId: deleteDocumentRequirement
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Document requirement deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /eligibility/collaterals:
+    get:
+      tags: [Eligibility]
+      summary: List collateral requirements
+      operationId: listCollateralRequirements
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: type
+          in: query
+          schema:
+            type: string
+          description: "Filter by collateral type (REAL_ESTATE, VEHICLE, DEPOSIT)"
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: List of collateral requirements
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CollateralRequirement'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+
+    post:
+      tags: [Eligibility]
+      summary: Create a collateral requirement
+      operationId: createCollateralRequirement
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, coverage_ratio]
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                coverage_ratio:
+                  type: number
+                min_value:
+                  type: number
+                params:
+                  type: object
+      responses:
+        '201':
+          description: Collateral requirement created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollateralRequirement'
+
+  /eligibility/collaterals/{id}:
+    get:
+      tags: [Eligibility]
+      summary: Get a collateral requirement
+      operationId: getCollateralRequirement
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Collateral requirement details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollateralRequirement'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Eligibility]
+      summary: Update a collateral requirement
+      operationId: updateCollateralRequirement
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                coverage_ratio:
+                  type: number
+                min_value:
+                  type: number
+                params:
+                  type: object
+      responses:
+        '200':
+          description: Collateral requirement updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollateralRequirement'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Eligibility]
+      summary: Delete a collateral requirement
+      operationId: deleteCollateralRequirement
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Collateral requirement deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /products/{id}/eligibility:
+    get:
+      tags: [Eligibility]
+      summary: Get eligibility rules linked to a product
+      operationId: getProductEligibility
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      responses:
+        '200':
+          description: Linked eligibility rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    product_id:
+                      type: integer
+                    rule_id:
+                      type: integer
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Eligibility]
+      summary: Set eligibility rules for a product
+      operationId: setProductEligibility
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  rule_id:
+                    type: integer
+      responses:
+        '200':
+          description: Rules updated
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /products/{id}/documents:
+    get:
+      tags: [Eligibility]
+      summary: Get document requirements linked to a product
+      operationId: getProductDocuments
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      responses:
+        '200':
+          description: Linked document requirements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    product_id:
+                      type: integer
+                    document_id:
+                      type: integer
+                    is_mandatory:
+                      type: boolean
+
+    put:
+      tags: [Eligibility]
+      summary: Set document requirements for a product
+      operationId: setProductDocuments
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  document_id:
+                    type: integer
+                  is_mandatory:
+                    type: boolean
+      responses:
+        '200':
+          description: Documents updated
+
+  /products/{id}/collaterals:
+    get:
+      tags: [Eligibility]
+      summary: Get collateral requirements linked to a product
+      operationId: getProductCollaterals
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      responses:
+        '200':
+          description: Linked collateral requirements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    product_id:
+                      type: integer
+                    collateral_id:
+                      type: integer
+
+    put:
+      tags: [Eligibility]
+      summary: Set collateral requirements for a product
+      operationId: setProductCollaterals
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  collateral_id:
+                    type: integer
+      responses:
+        '200':
+          description: Collaterals updated
+
+  # ==========================================================================
+  # Composition (BOM/Bundle/KIT)
+  # ==========================================================================
+  /products/{id}/composition:
+    get:
+      tags: [Composition]
+      summary: List composition items for a product
+      description: |
+        Returns BOM/Bundle/KIT composition of a product.
+        قائمة مكونات المنتج.
+      operationId: listProductComposition
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      responses:
+        '200':
+          description: Composition items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductComposition'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Composition]
+      summary: Add a composition item
+      operationId: addCompositionItem
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [child_product_id, qty]
+              properties:
+                child_product_id:
+                  type: integer
+                qty:
+                  type: number
+                policy:
+                  type: string
+                  enum: [EXPLODE, NO_EXPLODE]
+                  default: EXPLODE
+                price_ratio:
+                  type: number
+                  default: 1.0
+            example:
+              child_product_id: 45
+              qty: 2
+              policy: EXPLODE
+              price_ratio: 0.3
+      responses:
+        '201':
+          description: Item added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductComposition'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /products/{id}/composition/{itemId}:
+    put:
+      tags: [Composition]
+      summary: Update a composition item
+      operationId: updateCompositionItem
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                qty:
+                  type: number
+                policy:
+                  type: string
+                  enum: [EXPLODE, NO_EXPLODE]
+                price_ratio:
+                  type: number
+      responses:
+        '200':
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductComposition'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Composition]
+      summary: Remove a composition item
+      operationId: removeCompositionItem
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Item removed
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================================================
+  # Identifiers (LOT/Serial)
+  # ==========================================================================
+  /products/{id}/identifiers:
+    get:
+      tags: [Identifiers]
+      summary: List product identifiers
+      description: |
+        Returns LOT/Serial identifiers for a product with pagination.
+        قائمة معرفات المنتج.
+      operationId: listProductIdentifiers
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+        - name: id_type
+          in: query
+          schema:
+            type: string
+            enum: [PRODUCT, INVENTORY, LOCATION, EXTERNAL, CONTRACT]
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: List of identifiers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductIdentifier'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags: [Identifiers]
+      summary: Generate a product identifier
+      operationId: generateProductIdentifier
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_type, scheme_id]
+              properties:
+                id_type:
+                  type: string
+                  enum: [PRODUCT, INVENTORY, LOCATION, EXTERNAL, CONTRACT]
+                scheme_id:
+                  type: integer
+                context:
+                  type: object
+            example:
+              id_type: INVENTORY
+              scheme_id: 3
+              context:
+                warehouse: "WH-001"
+      responses:
+        '201':
+          description: Identifier generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductIdentifier'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /products/{id}/identifiers/{identifierId}:
+    get:
+      tags: [Identifiers]
+      summary: Get a specific product identifier
+      operationId: getProductIdentifier
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+        - name: identifierId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Identifier details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductIdentifier'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Identifiers]
+      summary: Delete a product identifier
+      operationId: deleteProductIdentifier
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/ProductIdPath'
+        - name: identifierId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Identifier deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================================================
+  # Schedule Templates (FR-110/FR-111/FR-112)
+  # ==========================================================================
+  /schedules/templates:
+    get:
+      tags: [Schedules]
+      summary: List schedule templates
+      description: |
+        Returns reusable schedule templates for installments, billing, or automated tasks.
+        قائمة قوالب الجدولة.
+      operationId: listScheduleTemplates
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: task_type
+          in: query
+          schema:
+            type: string
+          description: "Filter by task type (INSTALLMENT, BILLING, AGING)"
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: List of schedule templates
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScheduleTemplate'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+
+    post:
+      tags: [Schedules]
+      summary: Create a schedule template
+      operationId: createScheduleTemplate
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                cron_expression:
+                  type: string
+                task_type:
+                  type: string
+                params:
+                  type: object
+                is_active:
+                  type: boolean
+                  default: true
+            example:
+              name: "Monthly Installment Schedule"
+              task_type: INSTALLMENT
+              cron_expression: "0 0 1 * *"
+              params:
+                reminder_days: 3
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleTemplate'
+
+  /schedules/templates/{id}:
+    get:
+      tags: [Schedules]
+      summary: Get a schedule template
+      operationId: getScheduleTemplate
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleTemplate'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Schedules]
+      summary: Update a schedule template
+      operationId: updateScheduleTemplate
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                cron_expression:
+                  type: string
+                task_type:
+                  type: string
+                params:
+                  type: object
+                is_active:
+                  type: boolean
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleTemplate'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Schedules]
+      summary: Delete a schedule template
+      operationId: deleteScheduleTemplate
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Template deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /schedules/templates/{id}/toggle-active:
+    patch:
+      tags: [Schedules]
+      summary: Toggle schedule template active/inactive
+      operationId: toggleScheduleTemplate
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Template toggled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleTemplate'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================================================
+  # Reservations Policies
+  # ==========================================================================
+  /reservations/policies:
+    get:
+      tags: [Reservations]
+      summary: List cancellation policies
+      description: |
+        Returns available cancellation policies for reservations.
+        قائمة سياسات الالغاء.
+      operationId: listCancellationPolicies
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+      responses:
+        '200':
+          description: Cancellation policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CancellationPolicy'
+
 # ============================================================================
 # Components
 # ============================================================================
@@ -5288,6 +6685,235 @@ components:
         created_at:
           type: string
           format: date-time
+
+    # ========== Eligibility Schemas ==========
+
+    EligibilityRule:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: Rule name (اسم القاعدة)
+        condition_cel:
+          type: string
+          description: "CEL expression, e.g. customer.score >= 600"
+        params:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    DocumentRequirement:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        code:
+          type: string
+          description: Unique document code (رمز المستند)
+        name:
+          type: string
+          description: Document name (اسم المستند)
+        description:
+          type: string
+        mandatory:
+          type: boolean
+          default: false
+        params:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    CollateralRequirement:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: Collateral name (اسم الضمان)
+        type:
+          type: string
+          description: "Collateral type: REAL_ESTATE, VEHICLE, DEPOSIT (نوع الضمان)"
+        coverage_ratio:
+          type: number
+          description: "Coverage ratio e.g. 1.2 = 120% (نسبة التغطية)"
+        min_value:
+          type: number
+        params:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    # ========== Composition Schema ==========
+
+    ProductComposition:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        parent_product_id:
+          type: integer
+          format: int64
+        child_product_id:
+          type: integer
+          format: int64
+        qty:
+          type: number
+          description: Quantity (الكمية)
+        policy:
+          type: string
+          enum: [EXPLODE, NO_EXPLODE]
+          description: "Itemization policy (سياسة تفصيل المكونات)"
+        price_ratio:
+          type: number
+          description: Price allocation ratio (نسبة توزيع السعر)
+
+    # ========== Identifier Schema ==========
+
+    ProductIdentifier:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        product_id:
+          type: integer
+          format: int64
+        id_type:
+          type: string
+          enum: [PRODUCT, INVENTORY, LOCATION, EXTERNAL, CONTRACT]
+          description: Identifier type (نوع المعرف)
+        identifier:
+          type: string
+          description: Generated identifier value (قيمة المعرف)
+        scheme_id:
+          type: integer
+          format: int64
+
+    # ========== Schedule Template Schema ==========
+
+    ScheduleTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: Template name (اسم القالب)
+        cron_expression:
+          type: string
+          description: Cron expression for scheduling
+        task_type:
+          type: string
+          description: "Task type: INSTALLMENT, BILLING, AGING (نوع المهمة)"
+        params:
+          type: object
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    # ========== Pricing Rule Schema ==========
+
+    PriceRule:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        price_list_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+          description: Rule name (اسم القاعدة)
+        cel_expression:
+          type: string
+          description: CEL pricing expression (تعبير CEL)
+        priority:
+          type: integer
+          description: Rule evaluation priority (اولوية التقييم)
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    # ========== Cancellation Policy Schema ==========
+
+    CancellationPolicy:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: integer
+          format: int64
+        name_ar:
+          type: string
+        name_en:
+          type: string
+        penalty_type:
+          type: string
+          enum: [FIXED, PERCENT]
+        penalty_value:
+          type: number
+        free_cancel_hours:
+          type: integer
+          description: Hours before slot start for free cancellation
+
+    # ========== Product Category (used in toggle-active response) ==========
+
+    ProductCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        parent_id:
+          type: integer
+          format: int64
+          nullable: true
+        name_ar:
+          type: string
+        name_en:
+          type: string
+        type:
+          type: string
+        is_active:
+          type: boolean
+        default_policies:
+          type: object
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductCategory'
+        product_count:
+          type: integer
 
     # ========== Error Schema ==========
 

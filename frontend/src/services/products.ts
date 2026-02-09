@@ -81,7 +81,7 @@ export const productsService = {
    * تغيير حالة المنتج (تفعيل، تعليق، تقاعد)
    */
   changeStatus(id: number, data: ChangeProductStatusRequest): Promise<ProductStatusResponse> {
-    return apiClient.patch<ProductStatusResponse>(`products/${id}/status`, data);
+    return apiClient.put<ProductStatusResponse>(`products/${id}/status`, data);
   },
 
   // --------------------------------------------------------

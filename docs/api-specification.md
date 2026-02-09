@@ -180,7 +180,38 @@ Get a pricing quote for a product.
 }
 ```
 
-### POST /api/v1/price-lists
+### GET /api/v1/pricing/price-lists
+
+List price lists with optional filters.
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `currency` | string | Filter by currency: YER, USD, SAR |
+| `page` | integer | Page number (default: 1) |
+| `size` | integer | Page size (default: 20, max: 100) |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 10,
+      "name": "قائمة أسعار التجزئة",
+      "currency": "YER",
+      "valid_from": "2026-01-01",
+      "valid_to": "2026-12-31",
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "total": 5,
+  "page": 1,
+  "size": 20
+}
+```
+
+### POST /api/v1/pricing/price-lists
 
 Create a new price list.
 
@@ -1904,6 +1935,368 @@ Query subledger entries with filters. Subledger entries are the individual debit
   "size": 20
 }
 ```
+
+---
+
+## 13. Eligibility
+
+### GET /api/v1/eligibility/rules
+
+List CEL-based eligibility rules.
+
+**Query Parameters:**
+
+| Param | Type | Description |
+|---|---|---|
+| `page` | integer | Page number (default: 1) |
+| `size` | integer | Page size (default: 20, max: 100) |
+
+**Response:** `200 OK`
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "name": "Minimum Credit Score",
+      "condition_cel": "customer.score >= 600 && customer.kyc_level == 'FULL'",
+      "params": {},
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "total": 5,
+  "page": 1,
+  "size": 20
+}
+```
+
+### POST /api/v1/eligibility/rules
+
+Create an eligibility rule.
+
+### GET /api/v1/eligibility/rules/{id}
+
+Get a single eligibility rule.
+
+### PUT /api/v1/eligibility/rules/{id}
+
+Update an eligibility rule.
+
+### DELETE /api/v1/eligibility/rules/{id}
+
+Delete an eligibility rule.
+
+**Response:** `204 No Content`
+
+### GET /api/v1/eligibility/documents
+
+List document requirements.
+
+| Param | Type | Description |
+|---|---|---|
+| `mandatory` | boolean | Filter by mandatory flag |
+| `page` | integer | Page number |
+| `size` | integer | Page size |
+
+### POST /api/v1/eligibility/documents
+
+Create a document requirement.
+
+### GET /api/v1/eligibility/documents/{id}
+
+Get a document requirement.
+
+### PUT /api/v1/eligibility/documents/{id}
+
+Update a document requirement.
+
+### DELETE /api/v1/eligibility/documents/{id}
+
+Delete a document requirement.
+
+### GET /api/v1/eligibility/collaterals
+
+List collateral requirements.
+
+| Param | Type | Description |
+|---|---|---|
+| `type` | string | Filter by collateral type (REAL_ESTATE, VEHICLE, DEPOSIT) |
+| `page` | integer | Page number |
+| `size` | integer | Page size |
+
+### POST /api/v1/eligibility/collaterals
+
+Create a collateral requirement.
+
+### GET /api/v1/eligibility/collaterals/{id}
+
+Get a collateral requirement.
+
+### PUT /api/v1/eligibility/collaterals/{id}
+
+Update a collateral requirement.
+
+### DELETE /api/v1/eligibility/collaterals/{id}
+
+Delete a collateral requirement.
+
+### GET /api/v1/products/{id}/eligibility
+
+Get eligibility rules linked to a product.
+
+### PUT /api/v1/products/{id}/eligibility
+
+Set eligibility rules for a product.
+
+### GET /api/v1/products/{id}/documents
+
+Get document requirements linked to a product.
+
+### PUT /api/v1/products/{id}/documents
+
+Set document requirements for a product. BR-03: No installments before mandatory documents complete.
+
+### GET /api/v1/products/{id}/collaterals
+
+Get collateral requirements linked to a product.
+
+### PUT /api/v1/products/{id}/collaterals
+
+Set collateral requirements for a product.
+
+---
+
+## 14. Composition (BOM/Bundle/KIT)
+
+### GET /api/v1/products/{id}/composition
+
+List composition items for a product (BOM/Bundle/KIT).
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "id": 1,
+    "parent_product_id": 10,
+    "child_product_id": 45,
+    "qty": 2,
+    "policy": "EXPLODE",
+    "price_ratio": 0.3
+  }
+]
+```
+
+### POST /api/v1/products/{id}/composition
+
+Add a composition item.
+
+**Request Body:**
+```json
+{
+  "child_product_id": 45,
+  "qty": 2,
+  "policy": "EXPLODE",
+  "price_ratio": 0.3
+}
+```
+
+### PUT /api/v1/products/{id}/composition/{itemId}
+
+Update a composition item.
+
+### DELETE /api/v1/products/{id}/composition/{itemId}
+
+Remove a composition item.
+
+**Response:** `204 No Content`
+
+---
+
+## 15. Identifiers (LOT/Serial)
+
+### GET /api/v1/products/{id}/identifiers
+
+List product identifiers with optional type filter.
+
+| Param | Type | Description |
+|---|---|---|
+| `id_type` | string | PRODUCT, INVENTORY, LOCATION, EXTERNAL, CONTRACT |
+| `page` | integer | Page number |
+| `size` | integer | Page size |
+
+### GET /api/v1/products/{id}/identifiers/{identifierId}
+
+Get a specific product identifier.
+
+### POST /api/v1/products/{id}/identifiers
+
+Generate a new product identifier from a numbering scheme.
+
+**Request Body:**
+```json
+{
+  "id_type": "INVENTORY",
+  "scheme_id": 3,
+  "context": {"warehouse": "WH-001"}
+}
+```
+
+### DELETE /api/v1/products/{id}/identifiers/{identifierId}
+
+Delete a product identifier.
+
+**Response:** `204 No Content`
+
+---
+
+## 16. Schedule Templates (FR-110-112)
+
+### GET /api/v1/schedules/templates
+
+List schedule templates.
+
+| Param | Type | Description |
+|---|---|---|
+| `task_type` | string | Filter by task type (INSTALLMENT, BILLING, AGING) |
+| `is_active` | boolean | Filter by active status |
+| `page` | integer | Page number |
+| `size` | integer | Page size |
+
+### GET /api/v1/schedules/templates/{id}
+
+Get a schedule template.
+
+### POST /api/v1/schedules/templates
+
+Create a schedule template.
+
+**Request Body:**
+```json
+{
+  "name": "Monthly Installment Schedule",
+  "task_type": "INSTALLMENT",
+  "cron_expression": "0 0 1 * *",
+  "params": {"reminder_days": 3},
+  "is_active": true
+}
+```
+
+### PUT /api/v1/schedules/templates/{id}
+
+Update a schedule template.
+
+### DELETE /api/v1/schedules/templates/{id}
+
+Delete a schedule template.
+
+**Response:** `204 No Content`
+
+### PATCH /api/v1/schedules/templates/{id}/toggle-active
+
+Toggle schedule template active/inactive status.
+
+---
+
+## 17. Pricing Rules
+
+### GET /api/v1/pricing/price-lists/{id}/rules
+
+List CEL-based pricing rules for a price list.
+
+### POST /api/v1/pricing/price-lists/{id}/rules
+
+Create a pricing rule.
+
+**Request Body:**
+```json
+{
+  "name": "Volume Discount",
+  "cel_expression": "qty >= 10 ? price * 0.9 : price",
+  "priority": 1,
+  "is_active": true
+}
+```
+
+### PUT /api/v1/pricing/price-lists/{id}/rules/{ruleId}
+
+Update a pricing rule.
+
+### DELETE /api/v1/pricing/price-lists/{id}/rules/{ruleId}
+
+Delete a pricing rule.
+
+**Response:** `204 No Content`
+
+---
+
+## 18. Additional Product Endpoints
+
+### DELETE /api/v1/products/{id}
+
+Delete a product (soft-delete).
+
+**Response:** `204 No Content`
+
+### GET /api/v1/products/{id}/attributes
+
+Get attribute values for a product.
+
+### GET /api/v1/products/{id}/versions/{versionNo}
+
+Get a specific product version.
+
+### GET /api/v1/products/{id}/versions/diff
+
+Compare two product versions field-by-field (FR-141).
+
+| Param | Type | Description |
+|---|---|---|
+| `from` | integer | Base version number |
+| `to` | integer | Target version number |
+
+**Response:** `200 OK`
+```json
+{
+  "product_id": 123,
+  "from_version": 1,
+  "to_version": 2,
+  "changes": [
+    {
+      "field": "data.description",
+      "old_value": "Original description",
+      "new_value": "Updated description"
+    }
+  ]
+}
+```
+
+### PATCH /api/v1/categories/{id}/toggle-active
+
+Toggle category active/inactive status.
+
+BR-09: Cannot deactivate categories with active products. Returns 409 Conflict.
+
+### GET /api/v1/categories/{id}/attribute-sets
+
+Get attribute sets linked to a category (FR-002).
+
+### POST /api/v1/categories/{id}/attribute-sets
+
+Link an attribute set to a category.
+
+**Request Body:**
+```json
+{
+  "set_id": 10
+}
+```
+
+### DELETE /api/v1/categories/{id}/attribute-sets/{setId}
+
+Unlink an attribute set from a category.
+
+### GET /api/v1/reservations/policies
+
+List cancellation policies for reservations.
 
 ---
 
