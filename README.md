@@ -18,6 +18,7 @@ A no-code platform foundation for managing dynamic products across multiple type
 
 ### Architecture
 
+- **Frontend**: React 18 + Vite + TypeScript + Tailwind CSS + shadcn/ui (14 screens, Arabic RTL)
 - **Database**: PostgreSQL 15+ (JSONB, GIN, RLS, Partitioning)
 - **Patterns**: CQRS, Event Sourcing, Saga, Maker-Checker, EAV
 - **Rules**: CEL (Common Expression Language)
@@ -27,15 +28,22 @@ A no-code platform foundation for managing dynamic products across multiple type
 ### Quick Start
 
 ```bash
+# Backend services
 cp .env.example .env         # Configure environment
 make up                      # Start PostgreSQL + Redis + Kafka
 make db-shell                # Connect to database
+
+# Frontend
+cd frontend
+npm install                  # Install dependencies
+npm run dev                  # Start dev server → http://localhost:3000
 ```
 
 ### Documentation
 
 | Document | Description |
 |---|---|
+| [Frontend](frontend/) | React SPA — 14 screens, Arabic RTL, shadcn/ui |
 | [CLAUDE.md](CLAUDE.md) | AI assistant guidance |
 | [SRS V2.0](docs/SRS-v2.0.md) | Full requirements specification (15 use cases) |
 | [API Spec](docs/api-specification.md) | REST API endpoints (all resources) |

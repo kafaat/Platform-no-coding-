@@ -55,6 +55,60 @@ Platform-no-coding-/
 │   │       └── dps-overview.json      # Business & infrastructure dashboard
 │   └── prometheus/
 │       └── alerts.yml                 # Alerting rules (API, business, infra)
+├── frontend/                          # React SPA (Vite + TypeScript + Tailwind)
+│   ├── package.json                   # Dependencies & scripts
+│   ├── tsconfig.json                  # TypeScript configuration
+│   ├── vite.config.ts                 # Vite bundler config with API proxy
+│   ├── tailwind.config.js             # Tailwind CSS with shadcn/ui theme
+│   ├── postcss.config.js              # PostCSS config
+│   ├── index.html                     # HTML entry (RTL, Tajawal + Inter fonts)
+│   └── src/
+│       ├── main.tsx                   # React entry point
+│       ├── App.tsx                    # Router setup
+│       ├── index.css                  # Tailwind base + CSS variables (light/dark)
+│       ├── lib/utils.ts               # cn() utility (clsx + tailwind-merge)
+│       ├── components/
+│       │   ├── ProductPlatformApp.tsx  # Main layout (sidebar + header + content)
+│       │   ├── Sidebar.tsx            # RTL sidebar with 14 nav items
+│       │   ├── HeaderBar.tsx          # Top bar (search, dark mode, lang, notifications)
+│       │   └── ui/                    # shadcn/ui primitives (13 components)
+│       │       ├── badge.tsx
+│       │       ├── button.tsx
+│       │       ├── card.tsx
+│       │       ├── checkbox.tsx
+│       │       ├── dialog.tsx
+│       │       ├── input.tsx
+│       │       ├── label.tsx
+│       │       ├── select.tsx
+│       │       ├── separator.tsx
+│       │       ├── switch.tsx
+│       │       ├── table.tsx
+│       │       ├── tabs.tsx
+│       │       └── textarea.tsx
+│       ├── screens/                   # Feature screens (14 screens)
+│       │   ├── DashboardScreen.tsx    # Summary cards, charts, aging, quick actions
+│       │   ├── CategoriesScreen.tsx   # Category tree/table with CRUD
+│       │   ├── ProductsScreen.tsx     # Product listing with filters & pagination
+│       │   ├── ProductEditorScreen.tsx # Product editor (10 tabs: basic→eligibility)
+│       │   ├── ManufacturingScreen.tsx # BOM/composition management
+│       │   ├── TraceabilityScreen.tsx  # LOT/Serial identifier tracking
+│       │   ├── PricingScreen.tsx      # Price lists + CEL rules
+│       │   ├── NumberingScreen.tsx    # Numbering schemes & sequences
+│       │   ├── ChannelsScreen.tsx     # Channel cards with feature flags
+│       │   ├── Contracts.tsx          # Financial contracts + installments
+│       │   ├── Customers.tsx          # Customer management + KYC
+│       │   ├── ReservationsScreen.tsx # Reservations calendar + availability
+│       │   ├── AuditScreen.tsx        # Audit log + state transitions + events
+│       │   └── ReportsScreen.tsx      # CQRS report cards + materialized views
+│       └── types/                     # TypeScript type definitions
+│           ├── index.ts               # Shared enums, interfaces & label maps
+│           ├── common.ts              # API wrappers, pagination, channels, audit
+│           ├── product.ts             # Product, version, category types
+│           ├── contract.ts            # Contract, installment, payment types
+│           ├── reservation.ts         # Reservation, cancellation policy types
+│           ├── pricing.ts             # Price list, price rule types
+│           ├── attribute.ts           # EAV attribute types
+│           └── customer.ts            # Customer, KYC types
 └── docs/
     ├── SRS-v2.0.md                    # Complete SRS document (15 use cases)
     ├── api-specification.md           # REST API specification (all endpoints)
@@ -104,8 +158,9 @@ Platform-no-coding-/
 | **Reservations Service** | Availability, hold/confirm/cancel with TTL |
 | **Event Bus** | Async domain events (Kafka/RabbitMQ) |
 
-### Technology Stack (Planned)
+### Technology Stack
 
+- **Frontend**: React 18 + Vite 5 + TypeScript 5 + Tailwind CSS 3.4 + shadcn/ui
 - **Database**: PostgreSQL 15+ (JSONB, GIN indexes, RLS, Partitioning)
 - **Cache**: Redis (pricing, sessions)
 - **Message Queue**: Kafka or RabbitMQ
@@ -113,6 +168,54 @@ Platform-no-coding-/
 - **Container**: Kubernetes
 - **Auth**: OAuth2/OIDC + RBAC/ABAC
 - **Monitoring**: OpenTelemetry + Grafana
+
+## Frontend
+
+### Stack
+
+- **React 18** with TypeScript 5.5
+- **Vite 5** for development & bundling
+- **Tailwind CSS 3.4** with shadcn/ui component library
+- **framer-motion** for animations
+- **lucide-react** for icons
+- **Arabic (RTL)** primary layout with Tajawal font
+
+### Quick Start
+
+```bash
+cd frontend
+npm install                  # Install dependencies
+npm run dev                  # Start dev server on http://localhost:3000
+npm run build                # Production build
+```
+
+### Screen Map
+
+| Screen | File | Description |
+|---|---|---|
+| Dashboard | `DashboardScreen.tsx` | KPIs, product distribution, aging, activity |
+| Categories | `CategoriesScreen.tsx` | Category tree/table, CRUD, type filtering |
+| Products | `ProductsScreen.tsx` | Product list with search, filter, pagination |
+| Product Editor | `ProductEditorScreen.tsx` | 10-tab editor (basic→eligibility) |
+| Manufacturing | `ManufacturingScreen.tsx` | BOM tree, composition policy, price ratios |
+| Traceability | `TraceabilityScreen.tsx` | LOT/Serial identifiers, inventory tracking |
+| Pricing | `PricingScreen.tsx` | Price lists, CEL rules, multi-currency |
+| Numbering | `NumberingScreen.tsx` | Numbering schemes, sequences, gap policies |
+| Channels | `ChannelsScreen.tsx` | Channel cards, feature flags, limits |
+| Contracts | `Contracts.tsx` | Financial contracts, installments, payments |
+| Customers | `Customers.tsx` | Customer management, KYC levels |
+| Reservations | `ReservationsScreen.tsx` | Calendar, availability, status flow |
+| Audit | `AuditScreen.tsx` | Audit log, state transitions, domain events |
+| Reports | `ReportsScreen.tsx` | CQRS views, report cards, export |
+
+### Conventions
+
+- All UI text in Arabic; use `name_ar` / `name_en` pattern for bilingual data
+- RTL layout with `dir="rtl"` on root element
+- shadcn/ui components in `src/components/ui/` — do not modify directly
+- Types in `src/types/` match the OpenAPI spec and database schema
+- Mock data used until API backend is implemented
+- API proxy configured in `vite.config.ts` → `http://localhost:8080/api`
 
 ### Multi-tenancy
 
