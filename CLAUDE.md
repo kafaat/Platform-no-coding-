@@ -35,16 +35,36 @@ Platform-no-coding-/
 ├── .env.example                       # Environment variables template
 ├── docker-compose.yml                 # Development environment (PG+Redis+Kafka)
 ├── Makefile                           # Development workflow commands
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                     # CI pipeline (SQL, docs, UML, security)
+│       └── deploy.yml                 # Deployment pipeline (staging/production)
 ├── db/
 │   ├── schema.sql                     # Full DDL + views + procedures (PostgreSQL 15+)
-│   └── seed.sql                       # Reference/seed data for initial setup
+│   ├── seed.sql                       # Reference/seed data for initial setup
+│   └── migrations/
+│       ├── README.md                  # Migration strategy & conventions
+│       ├── 000_schema_migrations.sql  # Migration tracking table
+│       ├── 001_initial_schema.sql     # Baseline marker
+│       ├── 002_add_notification_preferences.sql
+│       └── 003_add_notification_log.sql
+├── monitoring/
+│   ├── README.md                      # Monitoring architecture & setup
+│   ├── grafana/
+│   │   └── dashboards/
+│   │       └── dps-overview.json      # Business & infrastructure dashboard
+│   └── prometheus/
+│       └── alerts.yml                 # Alerting rules (API, business, infra)
 └── docs/
     ├── SRS-v2.0.md                    # Complete SRS document (15 use cases)
     ├── api-specification.md           # REST API specification (all endpoints)
+    ├── openapi.yaml                   # OpenAPI 3.0 machine-readable spec
     ├── interest-calculation.md        # Interest formulas & day count conventions
     ├── domain-events.md               # Domain events catalog with payload schemas
     ├── security.md                    # Security & compliance (OWASP, RBAC, encryption)
     ├── notification-templates.md      # Bilingual notification templates (SMS/Email/Push)
+    ├── testing-strategy.md            # Testing strategy with 60+ test cases
+    ├── data-dictionary.md             # Field-level documentation for all tables
     └── uml/
         ├── use-case.puml              # Use case diagram
         ├── class-diagram.puml         # Core class diagram
@@ -270,10 +290,15 @@ make down                    # Stop services
 
 - [SRS V2.0](docs/SRS-v2.0.md) — Complete requirements specification (15 use cases)
 - [API Specification](docs/api-specification.md) — REST API details (all resource endpoints)
+- [OpenAPI 3.0](docs/openapi.yaml) — Machine-readable API specification (Swagger)
 - [Database Schema](db/schema.sql) — Full PostgreSQL DDL (45+ tables, views, procedures)
 - [Seed Data](db/seed.sql) — Reference data for initial setup
+- [Data Dictionary](docs/data-dictionary.md) — Field-level documentation for all tables
+- [Migrations](db/migrations/) — Versioned database migration scripts
 - [Interest Calculation](docs/interest-calculation.md) — Formulas, day count conventions, penalties
 - [Domain Events](docs/domain-events.md) — Event catalog with payload schemas & Kafka topics
 - [Security & Compliance](docs/security.md) — OWASP, RBAC/ABAC, encryption, audit
 - [Notification Templates](docs/notification-templates.md) — Bilingual SMS/Email/Push templates
+- [Testing Strategy](docs/testing-strategy.md) — Test plans, 60+ test cases, traceability
+- [Monitoring](monitoring/) — Grafana dashboards & Prometheus alerts
 - [UML Diagrams](docs/uml/) — PlantUML source files (12 diagrams)

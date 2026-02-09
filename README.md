@@ -39,12 +39,17 @@ make db-shell                # Connect to database
 | [CLAUDE.md](CLAUDE.md) | AI assistant guidance |
 | [SRS V2.0](docs/SRS-v2.0.md) | Full requirements specification (15 use cases) |
 | [API Spec](docs/api-specification.md) | REST API endpoints (all resources) |
+| [OpenAPI 3.0](docs/openapi.yaml) | Machine-readable API specification (Swagger) |
 | [Schema DDL](db/schema.sql) | PostgreSQL DDL + CQRS views + stored procedures |
 | [Seed Data](db/seed.sql) | Reference data for initial setup |
+| [Data Dictionary](docs/data-dictionary.md) | Field-level documentation for all tables |
+| [Migrations](db/migrations/) | Versioned database migration scripts |
 | [Interest Calculation](docs/interest-calculation.md) | Formulas, day count conventions, penalties |
 | [Domain Events](docs/domain-events.md) | Event catalog with Kafka topics & payload schemas |
 | [Security](docs/security.md) | OWASP, RBAC/ABAC, encryption, compliance |
 | [Notifications](docs/notification-templates.md) | Bilingual SMS/Email/Push templates |
+| [Testing Strategy](docs/testing-strategy.md) | Test plans, 60+ test cases, traceability |
+| [Monitoring](monitoring/) | Grafana dashboards & Prometheus alerting rules |
 | [UML Diagrams](docs/uml/) | PlantUML architecture diagrams (12 diagrams) |
 
 ### Roadmap
