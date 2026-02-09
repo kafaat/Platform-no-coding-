@@ -16,6 +16,7 @@ import type {
   CreateContractRequest,
   ContractCreatedResponse,
   ContractSchedule,
+  GenerateScheduleRequest,
   RecordPaymentRequest,
   PaymentResponse,
   ContractStatement,
@@ -67,6 +68,14 @@ export const contractsService = {
   },
 
   /**
+   * Generate installment schedule for a contract.
+   * توليد جدول اقساط للعقد
+   */
+  generateSchedule(id: number, data: GenerateScheduleRequest): Promise<ContractSchedule> {
+    return apiClient.post<ContractSchedule>(`contracts/${id}/schedule`, data);
+  },
+
+  /**
    * Record a payment against a contract installment.
    * BR-11: Every payment must carry a unique idempotency key.
    * تسجيل دفعة مقابل قسط في العقد
@@ -84,8 +93,16 @@ export const contractsService = {
   },
 
   /**
-   * Calculate or execute early settlement for a contract.
-   * حساب او تنفيذ التسوية المبكرة للعقد
+   * Preview early settlement amount without executing (read-only).
+   * معاينة مبلغ التسوية المبكرة بدون تنفيذ
+   */
+  previewEarlySettlement(id: number, params?: { settlement_date?: string }): Promise<EarlySettlement> {
+    return apiClient.get<EarlySettlement>(`contracts/${id}/early-settlement`, { params });
+  },
+
+  /**
+   * Execute early settlement for a contract. Closes the contract.
+   * تنفيذ التسوية المبكرة للعقد. يغلق العقد
    */
   earlySettlement(id: number, data: EarlySettlementRequest): Promise<EarlySettlement> {
     return apiClient.post<EarlySettlement>(`contracts/${id}/early-settlement`, data);

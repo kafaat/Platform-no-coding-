@@ -58,7 +58,7 @@ export const reservationsService = {
    * تاكيد حجز مؤقت مع مرجع الدفع
    */
   confirm(id: number, data: ConfirmReservationRequest): Promise<Reservation> {
-    return apiClient.patch<Reservation>(`reservations/${id}/confirm`, data);
+    return apiClient.put<Reservation>(`reservations/${id}/confirm`, data);
   },
 
   /**
@@ -66,7 +66,7 @@ export const reservationsService = {
    * الغاء حجز. قد تطبق غرامات حسب السياسة
    */
   cancel(id: number): Promise<ReservationCancelledResponse> {
-    return apiClient.patch<ReservationCancelledResponse>(`reservations/${id}/cancel`);
+    return apiClient.put<ReservationCancelledResponse>(`reservations/${id}/cancel`);
   },
 
   /**

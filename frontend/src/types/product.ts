@@ -178,15 +178,15 @@ export interface ProductCategory {
 
 // ============================================================
 // Product Composition (BOM/Bundle/KIT)
-// تركيب المنتج
+// تركيب المنتج (فاتورة المكونات)
 // ============================================================
 
-/** Composition explosion policy / سياسة التفجير */
+/** Composition itemization policy / سياسة تفصيل المكونات */
 export type CompositionPolicy = 'EXPLODE' | 'NO_EXPLODE';
 
 /**
  * Product composition (Bill of Materials / Bundle / KIT).
- * التركيب: BOM/Bundle/KIT
+ * التركيب: فاتورة المكونات/حزمة/طقم
  *
  * Maps to: `product_composition` table in schema.sql
  */
@@ -199,7 +199,7 @@ export interface ProductComposition {
   child_product_id: number;
   /** Quantity of child in parent / الكمية */
   qty: number;
-  /** Explosion policy: EXPLODE or NO_EXPLODE / سياسة التفجير */
+  /** Itemization policy: EXPLODE or NO_EXPLODE / سياسة تفصيل المكونات */
   policy: CompositionPolicy;
   /** Price allocation ratio / نسبة توزيع السعر */
   price_ratio: number;

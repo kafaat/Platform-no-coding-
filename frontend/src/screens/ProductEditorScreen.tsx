@@ -1610,7 +1610,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <Layers className="h-4 w-4" />
-                التكوين (BOM/Bundle)
+                التكوين (فاتورة المكونات/حزمة)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1620,7 +1620,7 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                 <motion.div variants={fadeIn} initial="hidden" animate="visible" className="space-y-4">
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">
-                      المنتجات الفرعية (BOM/Bundle/KIT) المكونة لهذا المنتج
+                      المنتجات الفرعية (فاتورة المكونات/حزمة/طقم) المكونة لهذا المنتج
                     </p>
                     <Button size="sm" onClick={addComposition}>
                       <Plus className="h-4 w-4 ml-1" />
@@ -1677,8 +1677,8 @@ export default function ProductEditorScreen({ onBack }: ProductEditorScreenProps
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="EXPLODE">تفجير</SelectItem>
-                                    <SelectItem value="NO_EXPLODE">بدون تفجير</SelectItem>
+                                    <SelectItem value="EXPLODE">تفصيل المكونات</SelectItem>
+                                    <SelectItem value="NO_EXPLODE">بدون تفصيل</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </td>

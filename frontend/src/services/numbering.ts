@@ -28,6 +28,8 @@ export const numberingService = {
    * عرض مخططات الترقيم مع تصفية وتصفح اختياريين
    */
   listSchemes(params?: {
+    entity_type?: string;
+    is_active?: boolean;
     gap_policy?: GapPolicy;
     page?: number;
     size?: number;
@@ -63,9 +65,13 @@ export const numberingService = {
    * List numbering sequences, optionally filtered by scheme.
    * عرض تسلسلات الترقيم مع تصفية اختيارية حسب المخطط
    */
-  listSequences(schemeId?: number): Promise<NumberingSequence[]> {
-    const params = schemeId ? { scheme_id: schemeId } : undefined;
-    return apiClient.get<NumberingSequence[]>('numbering/sequences', { params });
+  listSequences(params?: {
+    scheme_id?: number;
+    period_key?: string;
+    page?: number;
+    size?: number;
+  }): Promise<PaginatedResponse<NumberingSequence>> {
+    return apiClient.get<PaginatedResponse<NumberingSequence>>('numbering/sequences', { params });
   },
 
   /**

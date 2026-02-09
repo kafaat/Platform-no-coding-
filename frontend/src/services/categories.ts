@@ -56,6 +56,15 @@ export const categoriesService = {
   },
 
   /**
+   * Disable (soft-delete) a category.
+   * BR-09: Cannot delete categories with active products; returns 409 Conflict.
+   * تعطيل فئة. يفشل اذا كانت تحتوي منتجات نشطة
+   */
+  delete(id: number): Promise<void> {
+    return apiClient.delete<void>(`categories/${id}`);
+  },
+
+  /**
    * Toggle category active/inactive status.
    * BR-09: Cannot deactivate categories with active products.
    * تبديل حالة الفئة بين نشطة وغير نشطة

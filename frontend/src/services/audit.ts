@@ -30,8 +30,8 @@ export const auditService = {
     entity_id?: number;
     action?: AuditAction;
     user_id?: string;
-    from_date?: string;
-    to_date?: string;
+    from?: string;
+    to?: string;
     page?: number;
     size?: number;
   }): Promise<PaginatedResponse<AuditLog>> {

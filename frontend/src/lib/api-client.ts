@@ -25,10 +25,12 @@ export interface RequestConfig {
   params?: Record<string, string | number | boolean | undefined>;
   /** AbortSignal for request cancellation / اشارة الالغاء */
   signal?: AbortSignal;
-  /** Number of retries for transient errors (5xx, network). Default: 0 / عدد المحاولات */
+  /** Number of retries for transient errors (5xx, 429, network). Default: 0 / عدد المحاولات */
   retries?: number;
   /** Base delay in ms between retries (exponential backoff). Default: 1000 / التاخير الاساسي */
   retryDelay?: number;
+  /** Request timeout in milliseconds. Default: 30000 (30s) / مهلة الطلب */
+  timeout?: number;
 }
 
 // ============================================================
@@ -114,6 +116,17 @@ function getTenantId(): string | null {
   return null;
 }
 
+/**
+ * Retrieve the current locale from localStorage (synced with AppContext).
+ * استرداد اللغة الحالية من التخزين المحلي (متزامنة مع AppContext)
+ */
+function getLocale(): string {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    return localStorage.getItem('dps_locale') ?? 'ar';
+  }
+  return 'ar';
+}
+
 // ============================================================
 // API Client Class
 // ============================================================
@@ -158,7 +171,7 @@ class ApiClient {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Accept-Language': 'ar',
+      'Accept-Language': getLocale(),
     };
 
     // Authorization
@@ -230,6 +243,9 @@ class ApiClient {
       case 404:
         apiError.code = 'NOT_FOUND';
         break;
+      case 409:
+        apiError.code = 'CONFLICT';
+        break;
       case 422:
         apiError.code = 'VALIDATION_ERROR';
         break;
@@ -244,6 +260,21 @@ class ApiClient {
     }
 
     throw new ApiClientError(response.status, apiError);
+  }
+
+  // ----------------------------------------------------------
+  // Signal combiner: merges two AbortSignals into one
+  // ----------------------------------------------------------
+  private combineSignals(userSignal: AbortSignal, timeoutSignal: AbortSignal): AbortSignal {
+    const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    if (userSignal.aborted || timeoutSignal.aborted) {
+      controller.abort();
+      return controller.signal;
+    }
+    userSignal.addEventListener('abort', onAbort, { once: true });
+    timeoutSignal.addEventListener('abort', onAbort, { once: true });
+    return controller.signal;
   }
 
   // ----------------------------------------------------------
@@ -289,10 +320,18 @@ class ApiClient {
     const maxRetries = config?.retries ?? 0;
     const baseDelay = config?.retryDelay ?? 1000;
 
+    const timeoutMs = config?.timeout ?? 30_000;
+
+    // Build a combined signal: merge caller's signal with timeout.
+    const timeoutController = new AbortController();
+    const combinedSignal = config?.signal
+      ? this.combineSignals(config.signal, timeoutController.signal)
+      : timeoutController.signal;
+
     const fetchOptions: RequestInit = {
       method: method.toUpperCase(),
       headers,
-      signal: config?.signal,
+      signal: combinedSignal,
     };
 
     if (body !== undefined && body !== null) {
@@ -302,8 +341,12 @@ class ApiClient {
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      // Start a timeout timer for each attempt
+      const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
+
       try {
         const response = await fetch(url, fetchOptions);
+        clearTimeout(timer);
 
         // Retry on 5xx server errors if retries remain
         if (response.status >= 500 && attempt < maxRetries) {
@@ -311,8 +354,19 @@ class ApiClient {
           continue;
         }
 
+        // Retry on 429 with Retry-After header if retries remain
+        if (response.status === 429 && attempt < maxRetries) {
+          const retryAfter = response.headers.get('Retry-After');
+          const retryMs = retryAfter
+            ? (Number(retryAfter) || 1) * 1000
+            : baseDelay * Math.pow(2, attempt);
+          await this.delay(retryMs, config?.signal);
+          continue;
+        }
+
         return await this.handleResponse<T>(response);
       } catch (err: unknown) {
+        clearTimeout(timer);
         lastError = err;
 
         // Never retry aborted requests
@@ -320,7 +374,7 @@ class ApiClient {
           throw err;
         }
 
-        // Don't retry already-handled API errors (non-5xx responses)
+        // Don't retry already-handled API errors (non-5xx/429 responses)
         if (err instanceof ApiClientError) {
           throw err;
         }

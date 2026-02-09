@@ -13,6 +13,7 @@ import type {
   CreateCustomerRequest,
   CustomerCreatedResponse,
   UpdateCustomerRequest,
+  CustomerDeactivatedResponse,
 } from '@/types';
 
 /**
@@ -26,6 +27,7 @@ export const customersService = {
    */
   list(params?: {
     kyc_level?: string;
+    search?: string;
     page?: number;
     size?: number;
   }): Promise<PaginatedResponse<Customer>> {
@@ -54,5 +56,14 @@ export const customersService = {
    */
   update(id: number, data: UpdateCustomerRequest): Promise<Customer> {
     return apiClient.put<Customer>(`customers/${id}`, data);
+  },
+
+  /**
+   * Deactivate (soft-delete) a customer.
+   * Fails if the customer has active contracts or reservations.
+   * الغاء تفعيل عميل. يفشل اذا كان لديه عقود او حجوزات نشطة
+   */
+  deactivate(id: number): Promise<CustomerDeactivatedResponse> {
+    return apiClient.delete<CustomerDeactivatedResponse>(`customers/${id}`);
   },
 };

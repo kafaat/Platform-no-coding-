@@ -37,6 +37,14 @@ export const pricingService = {
   },
 
   /**
+   * Get a single price list by ID (includes product entries).
+   * جلب قائمة اسعار واحدة حسب المعرف (تشمل بنود المنتجات)
+   */
+  getPriceList(id: number): Promise<PriceList> {
+    return apiClient.get<PriceList>(`pricing/price-lists/${id}`);
+  },
+
+  /**
    * Create a new price list.
    * انشاء قائمة اسعار جديدة
    */
@@ -53,12 +61,52 @@ export const pricingService = {
   },
 
   /**
+   * Delete a price list. Fails if linked to active product channels (BR-02).
+   * حذف قائمة اسعار. يفشل اذا كانت مرتبطة بقنوات منتج نشطة
+   */
+  deletePriceList(id: number): Promise<void> {
+    return apiClient.delete<void>(`pricing/price-lists/${id}`);
+  },
+
+  // --------------------------------------------------------
+  // Price Rules / قواعد التسعير (CEL)
+  // --------------------------------------------------------
+
+  /**
    * List CEL-based pricing rules for a specific price list.
    * عرض قواعد التسعير (CEL) لقائمة اسعار محددة
    */
   listRules(priceListId: number): Promise<PriceRule[]> {
     return apiClient.get<PriceRule[]>(`pricing/price-lists/${priceListId}/rules`);
   },
+
+  /**
+   * Create a new pricing rule for a price list.
+   * انشاء قاعدة تسعير جديدة لقائمة اسعار
+   */
+  createRule(priceListId: number, data: Omit<PriceRule, 'id' | 'price_list_id'>): Promise<PriceRule> {
+    return apiClient.post<PriceRule>(`pricing/price-lists/${priceListId}/rules`, data);
+  },
+
+  /**
+   * Update an existing pricing rule.
+   * تحديث قاعدة تسعير موجودة
+   */
+  updateRule(priceListId: number, ruleId: number, data: Partial<Omit<PriceRule, 'id' | 'price_list_id'>>): Promise<PriceRule> {
+    return apiClient.put<PriceRule>(`pricing/price-lists/${priceListId}/rules/${ruleId}`, data);
+  },
+
+  /**
+   * Delete a pricing rule.
+   * حذف قاعدة تسعير
+   */
+  deleteRule(priceListId: number, ruleId: number): Promise<void> {
+    return apiClient.delete<void>(`pricing/price-lists/${priceListId}/rules/${ruleId}`);
+  },
+
+  // --------------------------------------------------------
+  // Price Quotes / عروض الاسعار
+  // --------------------------------------------------------
 
   /**
    * Get a pricing quote for a product (applies rules, discounts, and taxes).

@@ -94,20 +94,24 @@ Platform-no-coding-/
 │       │   ├── useDebounce.ts         # Debounced value hook
 │       │   ├── usePagination.ts       # Pagination state hook
 │       │   └── useToast.ts            # Toast state management
-│       ├── services/                  # API service layer (12 services)
+│       ├── services/                  # API service layer (16 services)
 │       │   ├── index.ts               # Barrel exports
 │       │   ├── products.ts            # Products CRUD + versions + attributes
-│       │   ├── categories.ts          # Categories CRUD + toggle
-│       │   ├── contracts.ts           # Contracts + payments + settlement
+│       │   ├── categories.ts          # Categories CRUD + delete + toggle
+│       │   ├── contracts.ts           # Contracts + schedule + payments + settlement
 │       │   ├── reservations.ts        # Reservations + availability
-│       │   ├── customers.ts           # Customers CRUD
-│       │   ├── pricing.ts             # Price lists + rules + quotes
-│       │   ├── numbering.ts           # Numbering schemes + sequences
+│       │   ├── customers.ts           # Customers CRUD + deactivate
+│       │   ├── pricing.ts             # Price lists + rules CRUD + quotes
+│       │   ├── numbering.ts           # Numbering schemes + sequences + reserve
 │       │   ├── attributes.ts          # Attribute definitions + sets
 │       │   ├── channels.ts            # Channels + product-channel config
 │       │   ├── charges.ts             # Charges/fees CRUD
 │       │   ├── accounting.ts          # Accounting templates + mappings
-│       │   └── audit.ts               # Audit logs + transitions + events
+│       │   ├── audit.ts               # Audit logs + transitions + events
+│       │   ├── eligibility.ts         # Eligibility rules + documents + collaterals
+│       │   ├── composition.ts         # BOM/Bundle/KIT composition
+│       │   ├── identifiers.ts         # Product identifiers (LOT/Serial)
+│       │   └── subledger.ts           # Subledger entries (IFRS 9)
 │       ├── screens/                   # Feature screens (14 screens)
 │       │   ├── DashboardScreen.tsx    # Summary cards, charts, aging, quick actions
 │       │   ├── CategoriesScreen.tsx   # Category tree/table with CRUD

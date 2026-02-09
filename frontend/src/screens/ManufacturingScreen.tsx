@@ -188,11 +188,11 @@ const itemVariants = {
 function PolicyBadge({ policy }: { policy: CompositionPolicy }) {
   return policy === "EXPLODE" ? (
     <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
-      تفجير
+      تفصيل المكونات
     </Badge>
   ) : (
     <Badge className="bg-sky-100 text-sky-800 border-sky-200 hover:bg-sky-100">
-      بدون تفجير
+      بدون تفصيل
     </Badge>
   );
 }
@@ -298,7 +298,7 @@ export default function ManufacturingScreen() {
               التصنيع والتكوين
             </h1>
             <p className="text-muted-foreground mt-1">
-              إدارة قوائم المواد (BOM) وتكوين المنتجات المركبة
+              إدارة فواتير المكونات (BOM) وتكوين المنتجات المركبة
             </p>
           </div>
           <div className="flex gap-2">
@@ -349,8 +349,8 @@ export default function ManufacturingScreen() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">جميع السياسات</SelectItem>
-                    <SelectItem value="EXPLODE">تفجير فقط</SelectItem>
-                    <SelectItem value="NO_EXPLODE">بدون تفجير فقط</SelectItem>
+                    <SelectItem value="EXPLODE">تفصيل المكونات فقط</SelectItem>
+                    <SelectItem value="NO_EXPLODE">بدون تفصيل فقط</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

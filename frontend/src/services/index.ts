@@ -18,3 +18,7 @@ export { channelsService } from './channels';
 export { chargesService } from './charges';
 export { accountingService } from './accounting';
 export { auditService } from './audit';
+export { eligibilityService } from './eligibility';
+export { compositionService } from './composition';
+export { identifiersService } from './identifiers';
+export { subledgerService } from './subledger';
