@@ -1,0 +1,228 @@
+# ============================================================
+# Dynamic Product System — Deployment Pipeline
+#
+# Triggered when a version tag (v*) is pushed to main.
+# Builds Docker images, pushes to a container registry,
+# and deploys to the staging environment.
+#
+# Jobs:
+#   1. deploy-staging — Build, push, and deploy to staging
+#
+# Prerequisites (configure as GitHub Secrets):
+#   - REGISTRY_URL        — Container registry URL (e.g., ghcr.io/org/dps)
+#   - REGISTRY_USERNAME   — Registry login username
+#   - REGISTRY_PASSWORD   — Registry login password/token
+# ============================================================
+
+name: Deploy — Staging
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+
+# Prevent parallel deployments to the same environment
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false  # Do not cancel in-progress deployments
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ============================================================
+  # Job 1: Deploy to Staging
+  # Builds Docker images for all services, pushes to the
+  # container registry, and deploys to the staging environment.
+  # ============================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    # Only run on version tags (v1.0.0, v2.1.3, etc.)
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    environment:
+      name: staging
+      url: https://staging.dps.example.com
+
+    env:
+      REGISTRY_URL: ${{ secrets.REGISTRY_URL || 'ghcr.io' }}
+      IMAGE_PREFIX: ${{ secrets.REGISTRY_URL || 'ghcr.io' }}/${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version metadata
+        id: meta
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+
+          echo "=== Build Metadata ==="
+          echo "Version:    $VERSION"
+          echo "Short SHA:  $SHORT_SHA"
+          echo "Build Date: $BUILD_DATE"
+          echo "Repository: ${{ github.repository }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_URL }}
+          username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+          password: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
+
+      # ----------------------------------------------------------
+      # Build Docker images
+      # In a production setup, each service would have its own
+      # Dockerfile. For now, we build the database initializer
+      # and placeholder application images.
+      # ----------------------------------------------------------
+      - name: Build and push database initializer image
+        run: |
+          echo "=== Building database initializer image ==="
+
+          # Create a lightweight Dockerfile for the DB init container
+          cat > /tmp/Dockerfile.db-init << 'DOCKERFILE'
+          FROM postgres:15-alpine
+          LABEL org.opencontainers.image.source="${{ github.server_url }}/${{ github.repository }}"
+          LABEL org.opencontainers.image.version="${{ steps.meta.outputs.version }}"
+          LABEL org.opencontainers.image.description="DPS Database Initializer"
+          COPY db/schema.sql /docker-entrypoint-initdb.d/01-schema.sql
+          COPY db/seed.sql /docker-entrypoint-initdb.d/02-seed.sql
+          DOCKERFILE
+
+          docker build \
+            -f /tmp/Dockerfile.db-init \
+            -t "${{ env.IMAGE_PREFIX }}/db-init:${{ steps.meta.outputs.version }}" \
+            -t "${{ env.IMAGE_PREFIX }}/db-init:latest" \
+            --label "org.opencontainers.image.created=${{ steps.meta.outputs.build_date }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            .
+
+          echo "Pushing database initializer image..."
+          docker push "${{ env.IMAGE_PREFIX }}/db-init:${{ steps.meta.outputs.version }}"
+          docker push "${{ env.IMAGE_PREFIX }}/db-init:latest"
+
+          echo "Database initializer image pushed successfully."
+
+      - name: Build and push application image (placeholder)
+        run: |
+          echo "=== Building application image (placeholder) ==="
+          echo "NOTE: This is a placeholder. Replace with actual application"
+          echo "      Dockerfile once the application code is implemented."
+
+          # Placeholder: package documentation and configs for deployment
+          cat > /tmp/Dockerfile.app << 'DOCKERFILE'
+          FROM alpine:3.19
+          LABEL org.opencontainers.image.source="${{ github.server_url }}/${{ github.repository }}"
+          LABEL org.opencontainers.image.version="${{ steps.meta.outputs.version }}"
+          LABEL org.opencontainers.image.description="DPS Application (placeholder)"
+          RUN mkdir -p /app/docs /app/db
+          COPY docs/ /app/docs/
+          COPY db/ /app/db/
+          COPY docker-compose.yml /app/
+          COPY Makefile /app/
+          WORKDIR /app
+          CMD ["echo", "DPS Application placeholder — replace with actual entrypoint"]
+          DOCKERFILE
+
+          docker build \
+            -f /tmp/Dockerfile.app \
+            -t "${{ env.IMAGE_PREFIX }}/app:${{ steps.meta.outputs.version }}" \
+            -t "${{ env.IMAGE_PREFIX }}/app:latest" \
+            --label "org.opencontainers.image.created=${{ steps.meta.outputs.build_date }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            .
+
+          echo "Pushing application image..."
+          docker push "${{ env.IMAGE_PREFIX }}/app:${{ steps.meta.outputs.version }}"
+          docker push "${{ env.IMAGE_PREFIX }}/app:latest"
+
+          echo "Application image pushed successfully."
+
+      # ----------------------------------------------------------
+      # Deploy to staging environment
+      # Replace these placeholder steps with actual deployment
+      # commands (kubectl apply, helm upgrade, docker-compose, etc.)
+      # ----------------------------------------------------------
+      - name: Deploy to staging environment
+        run: |
+          echo "=============================================="
+          echo "  Deploying to Staging Environment"
+          echo "=============================================="
+          echo ""
+          echo "Version:    ${{ steps.meta.outputs.version }}"
+          echo "Commit:     ${{ steps.meta.outputs.short_sha }}"
+          echo "Build Date: ${{ steps.meta.outputs.build_date }}"
+          echo "Images:"
+          echo "  - ${{ env.IMAGE_PREFIX }}/db-init:${{ steps.meta.outputs.version }}"
+          echo "  - ${{ env.IMAGE_PREFIX }}/app:${{ steps.meta.outputs.version }}"
+          echo ""
+
+          # ----------------------------------------------------------
+          # PLACEHOLDER: Replace with actual deployment commands
+          # ----------------------------------------------------------
+          # Example with kubectl:
+          #   kubectl set image deployment/dps-app \
+          #     app=${{ env.IMAGE_PREFIX }}/app:${{ steps.meta.outputs.version }} \
+          #     --namespace=staging
+          #
+          # Example with Helm:
+          #   helm upgrade dps ./helm/dps \
+          #     --namespace staging \
+          #     --set image.tag=${{ steps.meta.outputs.version }} \
+          #     --set image.repository=${{ env.IMAGE_PREFIX }}/app \
+          #     --wait --timeout 300s
+          #
+          # Example with docker compose (remote):
+          #   ssh deploy@staging.dps.example.com \
+          #     "cd /opt/dps && docker compose pull && docker compose up -d"
+
+          echo "PLACEHOLDER: Staging deployment step."
+          echo "Configure actual deployment commands for your infrastructure."
+          echo ""
+          echo "Staging deployment completed successfully."
+
+      - name: Post-deployment verification (placeholder)
+        run: |
+          echo "=== Post-deployment Verification ==="
+          echo ""
+
+          # ----------------------------------------------------------
+          # PLACEHOLDER: Replace with actual health checks
+          # ----------------------------------------------------------
+          # Example:
+          #   curl -sf https://staging.dps.example.com/health || exit 1
+          #   curl -sf https://staging.dps.example.com/api/v1/status || exit 1
+
+          echo "PLACEHOLDER: Health check and smoke tests."
+          echo "Configure actual verification endpoints for your deployment."
+          echo ""
+          echo "Post-deployment verification completed."
+
+      - name: Create deployment summary
+        run: |
+          echo "## Deployment Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Environment** | Staging |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Version** | \`${{ steps.meta.outputs.version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Commit** | \`${{ steps.meta.outputs.short_sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Build Date** | ${{ steps.meta.outputs.build_date }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **DB Init Image** | \`${{ env.IMAGE_PREFIX }}/db-init:${{ steps.meta.outputs.version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **App Image** | \`${{ env.IMAGE_PREFIX }}/app:${{ steps.meta.outputs.version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Triggered by: @${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"

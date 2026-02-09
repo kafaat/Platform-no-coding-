@@ -25,7 +25,7 @@ ifneq (,$(wildcard ./.env))
 	export
 endif
 
-.PHONY: help up down reset logs status db-shell db-init db-migrate redis-cli clean
+.PHONY: help up down reset logs status db-shell db-init db-migrate db-migrate-status db-migrate-create redis-cli clean
 
 # ----------------------------------------------------------
 # Default target
@@ -95,9 +95,114 @@ db-init: ## Manually run schema.sql and seed.sql against the database
 		psql -U $${DB_USER:-dps_admin} -d $${DB_NAME:-dps_dev} < db/seed.sql
 	@echo "Database initialization complete."
 
-db-migrate: ## Run database migrations (placeholder for future use)
-	@echo "Database migration support is not yet implemented."
-	@echo "Future migrations will be placed in db/migrations/ and run here."
+DB_USER_FLAG := -U $${DB_USER:-dps_admin}
+DB_NAME_FLAG := -d $${DB_NAME:-dps_dev}
+MIGRATIONS_DIR := db/migrations
+
+db-migrate: ## Run all pending migrations in order / تشغيل الترحيلات المعلقة
+	@echo "Running database migrations..."
+	@echo "تشغيل ترحيلات قاعدة البيانات..."
+	@echo ""
+	@# Ensure schema_migrations table exists (bootstrap migration 000)
+	@docker exec -i $(POSTGRES_CONTAINER) \
+		psql $(DB_USER_FLAG) $(DB_NAME_FLAG) -v ON_ERROR_STOP=1 < $(MIGRATIONS_DIR)/000_schema_migrations.sql > /dev/null 2>&1
+	@APPLIED=0; SKIPPED=0; FAILED=0; \
+	for migration in $$(ls $(MIGRATIONS_DIR)/*.sql | sort); do \
+		VERSION=$$(basename $$migration | cut -d'_' -f1); \
+		NAME=$$(basename $$migration .sql | sed 's/^[0-9]*_//'); \
+		if [ "$$VERSION" = "000" ]; then continue; fi; \
+		EXISTS=$$(docker exec -i $(POSTGRES_CONTAINER) \
+			psql $(DB_USER_FLAG) $(DB_NAME_FLAG) -tAc \
+			"SELECT COUNT(*) FROM schema_migrations WHERE version = '$$VERSION';" 2>/dev/null); \
+		if [ "$$EXISTS" = "1" ]; then \
+			SKIPPED=$$((SKIPPED + 1)); \
+			echo "  SKIP  $$VERSION — $$NAME (already applied / مُطبّق مسبقاً)"; \
+		else \
+			echo "  APPLY $$VERSION — $$NAME ..."; \
+			if docker exec -i $(POSTGRES_CONTAINER) \
+				psql $(DB_USER_FLAG) $(DB_NAME_FLAG) -v ON_ERROR_STOP=1 < $$migration > /dev/null 2>&1; then \
+				APPLIED=$$((APPLIED + 1)); \
+				echo "    OK (applied successfully / تم التطبيق بنجاح)"; \
+			else \
+				FAILED=$$((FAILED + 1)); \
+				echo "    FAIL (error applying migration / خطأ في التطبيق)"; \
+				echo ""; \
+				echo "Migration failed. Stopping. / فشل الترحيل. توقف."; \
+				exit 1; \
+			fi; \
+		fi; \
+	done; \
+	echo ""; \
+	echo "Migration summary / ملخص الترحيلات:"; \
+	echo "  Applied / مُطبّق:  $$APPLIED"; \
+	echo "  Skipped / مُتجاوز: $$SKIPPED"; \
+	echo "  Failed / فاشل:    $$FAILED"; \
+	echo "Done. / تم."
+
+db-migrate-status: ## Show migration status / عرض حالة الترحيلات
+	@echo "Migration Status / حالة الترحيلات"
+	@echo "========================================"
+	@echo ""
+	@# Check if schema_migrations table exists
+	@TABLE_EXISTS=$$(docker exec -i $(POSTGRES_CONTAINER) \
+		psql $(DB_USER_FLAG) $(DB_NAME_FLAG) -tAc \
+		"SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name='schema_migrations');" 2>/dev/null); \
+	if [ "$$TABLE_EXISTS" != "t" ]; then \
+		echo "  schema_migrations table does not exist."; \
+		echo "  جدول تتبع الترحيلات غير موجود."; \
+		echo "  Run 'make db-migrate' to initialize."; \
+		echo ""; \
+	else \
+		echo "Applied migrations / الترحيلات المُطبّقة:"; \
+		docker exec -i $(POSTGRES_CONTAINER) \
+			psql $(DB_USER_FLAG) $(DB_NAME_FLAG) -c \
+			"SELECT version, name, applied_at FROM schema_migrations ORDER BY version;" 2>/dev/null; \
+		echo ""; \
+	fi
+	@echo "Available migration files / ملفات الترحيل المتاحة:"
+	@for migration in $$(ls $(MIGRATIONS_DIR)/*.sql 2>/dev/null | sort); do \
+		VERSION=$$(basename $$migration | cut -d'_' -f1); \
+		NAME=$$(basename $$migration .sql | sed 's/^[0-9]*_//'); \
+		echo "  $$VERSION — $$NAME"; \
+	done
+	@echo ""
+
+db-migrate-create: ## Create a new migration file / إنشاء ملف ترحيل جديد
+	@if [ -z "$(NAME)" ]; then \
+		echo "Usage: make db-migrate-create NAME=description"; \
+		echo "Example: make db-migrate-create NAME=add_audit_columns"; \
+		echo ""; \
+		echo "الاستخدام: make db-migrate-create NAME=وصف_الترحيل"; \
+		exit 1; \
+	fi
+	@LAST=$$(ls $(MIGRATIONS_DIR)/*.sql 2>/dev/null | sort | tail -1 | xargs basename | cut -d'_' -f1); \
+	NEXT=$$(printf "%03d" $$(( $${LAST:-0} + 1 )) ); \
+	FILE="$(MIGRATIONS_DIR)/$${NEXT}_$(NAME).sql"; \
+	echo "-- ============================================================" > $$FILE; \
+	echo "-- Migration $${NEXT}: $(NAME)" >> $$FILE; \
+	echo "-- ترحيل $${NEXT}: $(NAME)" >> $$FILE; \
+	echo "--" >> $$FILE; \
+	echo "-- Purpose / الغرض:" >> $$FILE; \
+	echo "--   TODO: Describe what this migration does" >> $$FILE; \
+	echo "--   TODO: صف ما يفعله هذا الترحيل" >> $$FILE; \
+	echo "-- ============================================================" >> $$FILE; \
+	echo "" >> $$FILE; \
+	echo "-- UP:" >> $$FILE; \
+	echo "" >> $$FILE; \
+	echo "-- TODO: Add your migration SQL here" >> $$FILE; \
+	echo "-- TODO: أضف أوامر SQL الخاصة بالترحيل هنا" >> $$FILE; \
+	echo "" >> $$FILE; \
+	echo "INSERT INTO schema_migrations (version, name)" >> $$FILE; \
+	echo "VALUES ('$${NEXT}', '$(NAME)')" >> $$FILE; \
+	echo "ON CONFLICT (version) DO NOTHING;" >> $$FILE; \
+	echo "" >> $$FILE; \
+	echo "-- DOWN:" >> $$FILE; \
+	echo "-- TODO: Add rollback SQL here (commented out)" >> $$FILE; \
+	echo "-- TODO: أضف أوامر العكس هنا (كتعليق)" >> $$FILE; \
+	echo "-- DELETE FROM schema_migrations WHERE version = '$${NEXT}';" >> $$FILE; \
+	echo ""; \
+	echo "Created migration file / تم إنشاء ملف الترحيل:"; \
+	echo "  $$FILE"
 
 # ----------------------------------------------------------
 # Redis operations
