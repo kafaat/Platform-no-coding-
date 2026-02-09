@@ -85,6 +85,29 @@ Platform-no-coding-/
 │       │       ├── table.tsx
 │       │       ├── tabs.tsx
 │       │       └── textarea.tsx
+│       ├── context/                   # React context providers
+│       │   ├── AppContext.tsx          # Locale, dark mode, tenant state
+│       │   └── ToastContext.tsx        # Toast notification system
+│       ├── hooks/                     # Custom React hooks
+│       │   ├── index.ts               # Barrel exports
+│       │   ├── useApi.ts              # useApi + useMutation (data fetching)
+│       │   ├── useDebounce.ts         # Debounced value hook
+│       │   ├── usePagination.ts       # Pagination state hook
+│       │   └── useToast.ts            # Toast state management
+│       ├── services/                  # API service layer (12 services)
+│       │   ├── index.ts               # Barrel exports
+│       │   ├── products.ts            # Products CRUD + versions + attributes
+│       │   ├── categories.ts          # Categories CRUD + toggle
+│       │   ├── contracts.ts           # Contracts + payments + settlement
+│       │   ├── reservations.ts        # Reservations + availability
+│       │   ├── customers.ts           # Customers CRUD
+│       │   ├── pricing.ts             # Price lists + rules + quotes
+│       │   ├── numbering.ts           # Numbering schemes + sequences
+│       │   ├── attributes.ts          # Attribute definitions + sets
+│       │   ├── channels.ts            # Channels + product-channel config
+│       │   ├── charges.ts             # Charges/fees CRUD
+│       │   ├── accounting.ts          # Accounting templates + mappings
+│       │   └── audit.ts               # Audit logs + transitions + events
 │       ├── screens/                   # Feature screens (14 screens)
 │       │   ├── DashboardScreen.tsx    # Summary cards, charts, aging, quick actions
 │       │   ├── CategoriesScreen.tsx   # Category tree/table with CRUD
@@ -108,7 +131,8 @@ Platform-no-coding-/
 │           ├── reservation.ts         # Reservation, cancellation policy types
 │           ├── pricing.ts             # Price list, price rule types
 │           ├── attribute.ts           # EAV attribute types
-│           └── customer.ts            # Customer, KYC types
+│           ├── customer.ts            # Customer, KYC types
+│           └── eligibility.ts         # Eligibility, document, collateral types
 └── docs/
     ├── SRS-v2.0.md                    # Complete SRS document (15 use cases)
     ├── api-specification.md           # REST API specification (all endpoints)

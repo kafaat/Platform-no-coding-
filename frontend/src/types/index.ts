@@ -146,6 +146,18 @@ export type {
   CustomerDeactivatedResponse,
 } from './customer';
 
+// Eligibility types: rules, document/collateral requirements, product links, schedule templates
+// انواع الاهلية: القواعد، متطلبات المستندات/الضمانات، روابط المنتجات، قوالب الجدولة
+export type {
+  EligibilityRule,
+  DocumentRequirement,
+  CollateralRequirement,
+  ProductEligibilityLink,
+  ProductDocumentLink,
+  ProductCollateralLink,
+  ScheduleTemplate,
+} from './eligibility';
+
 // ============================================================
 // UI-Specific Types (Navigation)
 // انواع خاصة بواجهة المستخدم
