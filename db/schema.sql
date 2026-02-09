@@ -1,0 +1,684 @@
+-- ============================================================
+-- Dynamic Product System — Database Schema (DDL)
+-- Version: 2.0
+-- Database: PostgreSQL 15+
+-- Encoding: UTF-8
+-- ============================================================
+
+-- ============================================================
+-- 1. TENANT & CUSTOMER (Multi-tenancy Foundation)
+-- ============================================================
+
+CREATE TABLE tenant (
+  id         BIGSERIAL PRIMARY KEY,
+  code       TEXT NOT NULL UNIQUE,
+  name       TEXT NOT NULL,
+  settings   JSONB DEFAULT '{}',
+  is_active  BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+COMMENT ON TABLE tenant IS 'كيان المستأجر — Multi-tenancy root';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE customer (
+  id         BIGSERIAL PRIMARY KEY,
+  tenant_id  BIGINT NOT NULL REFERENCES tenant(id),
+  code       TEXT NOT NULL,
+  name_ar    TEXT,
+  name_en    TEXT,
+  kyc_level  TEXT CHECK (kyc_level IN ('NONE','BASIC','FULL')),
+  score      NUMERIC(5,2),
+  phone      TEXT,
+  email      TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(tenant_id, code)
+);
+
+CREATE INDEX idx_customer_tenant ON customer(tenant_id);
+
+COMMENT ON TABLE customer IS 'العميل — مرجع للعقود والحجوزات';
+
+-- ============================================================
+-- 2. CATEGORIES (Self-referencing Tree)
+-- ============================================================
+
+CREATE TABLE product_category (
+  id               BIGSERIAL PRIMARY KEY,
+  tenant_id        BIGINT NOT NULL REFERENCES tenant(id),
+  parent_id        BIGINT REFERENCES product_category(id),
+  name_ar          TEXT NOT NULL,
+  name_en          TEXT,
+  type             TEXT NOT NULL,
+  is_active        BOOLEAN DEFAULT true,
+  default_policies JSONB DEFAULT '{}'
+);
+
+CREATE INDEX idx_category_parent ON product_category(parent_id);
+CREATE INDEX idx_category_tenant ON product_category(tenant_id);
+
+COMMENT ON TABLE product_category IS 'شجرة الفئات اللانهائية مع سياسات افتراضية';
+
+-- ============================================================
+-- 3. PRODUCT & VERSIONS
+-- ============================================================
+
+CREATE TABLE product (
+  id             BIGSERIAL PRIMARY KEY,
+  tenant_id      BIGINT NOT NULL REFERENCES tenant(id),
+  category_id    BIGINT NOT NULL REFERENCES product_category(id),
+  type           TEXT NOT NULL CHECK (type IN ('PHYSICAL','DIGITAL','SERVICE','RESERVATION','FINANCIAL')),
+  name_ar        TEXT NOT NULL,
+  name_en        TEXT,
+  divisible      BOOLEAN DEFAULT false,
+  lifecycle_from DATE,
+  lifecycle_to   DATE,
+  status         TEXT NOT NULL DEFAULT 'DRAFT'
+                   CHECK (status IN ('DRAFT','ACTIVE','SUSPENDED','RETIRED')),
+  payload        JSONB DEFAULT '{}',
+  created_at     TIMESTAMPTZ DEFAULT now(),
+  updated_at     TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_product_tenant_status ON product(tenant_id, status);
+CREATE INDEX idx_product_category      ON product(category_id);
+CREATE INDEX idx_product_type          ON product(type);
+
+COMMENT ON TABLE product IS 'المنتج الأساسي — خمسة أنواع';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_version (
+  id             BIGSERIAL PRIMARY KEY,
+  product_id     BIGINT NOT NULL REFERENCES product(id),
+  version_no     INT NOT NULL,
+  effective_from DATE NOT NULL,
+  effective_to   DATE,
+  data           JSONB DEFAULT '{}',
+  approved_by    TEXT,
+  approved_at    TIMESTAMPTZ,
+  UNIQUE(product_id, version_no),
+  CHECK (effective_to IS NULL OR effective_to > effective_from)
+);
+
+COMMENT ON TABLE product_version IS 'إصدارات المنتج مع تواريخ فعالية — يُمنع التداخل عبر Trigger';
+
+-- ============================================================
+-- 4. ATTRIBUTES (EAV Pattern)
+-- ============================================================
+
+CREATE TABLE attribute_definition (
+  id          BIGSERIAL PRIMARY KEY,
+  tenant_id   BIGINT NOT NULL REFERENCES tenant(id),
+  code        TEXT NOT NULL,
+  label_ar    TEXT,
+  label_en    TEXT,
+  datatype    TEXT NOT NULL CHECK (datatype IN ('STRING','NUMBER','DATE','BOOL','ENUM','JSON')),
+  required    BOOLEAN DEFAULT false,
+  validation  JSONB DEFAULT '{}',
+  json_schema JSONB,
+  UNIQUE(tenant_id, code)
+);
+
+COMMENT ON TABLE attribute_definition IS 'تعريف السمة الديناميكية';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE attribute_set (
+  id          BIGSERIAL PRIMARY KEY,
+  tenant_id   BIGINT NOT NULL REFERENCES tenant(id),
+  name        TEXT NOT NULL,
+  description TEXT
+);
+
+COMMENT ON TABLE attribute_set IS 'مجموعة سمات قابلة للربط بالفئات والمنتجات';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE attribute_set_item (
+  id           BIGSERIAL PRIMARY KEY,
+  set_id       BIGINT NOT NULL REFERENCES attribute_set(id),
+  attribute_id BIGINT NOT NULL REFERENCES attribute_definition(id),
+  sort_order   INT DEFAULT 0,
+  UNIQUE(set_id, attribute_id)
+);
+
+-- -----------------------------------------------------------
+
+CREATE TABLE category_attribute_set (
+  id          BIGSERIAL PRIMARY KEY,
+  category_id BIGINT NOT NULL REFERENCES product_category(id),
+  set_id      BIGINT NOT NULL REFERENCES attribute_set(id),
+  UNIQUE(category_id, set_id)
+);
+
+COMMENT ON TABLE category_attribute_set IS 'ربط مجموعة سمات بفئة';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_attribute_set (
+  id         BIGSERIAL PRIMARY KEY,
+  product_id BIGINT NOT NULL REFERENCES product(id),
+  set_id     BIGINT NOT NULL REFERENCES attribute_set(id),
+  UNIQUE(product_id, set_id)
+);
+
+COMMENT ON TABLE product_attribute_set IS 'ربط مجموعة سمات بمنتج (تجاوز الفئة)';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE attribute_value (
+  id           BIGSERIAL PRIMARY KEY,
+  product_id   BIGINT NOT NULL REFERENCES product(id),
+  attribute_id BIGINT NOT NULL REFERENCES attribute_definition(id),
+  value_text   TEXT,
+  value_number NUMERIC(18,4),
+  value_date   DATE,
+  value_bool   BOOLEAN,
+  value_json   JSONB,
+  UNIQUE(product_id, attribute_id)
+);
+
+CREATE INDEX idx_attr_val_product ON attribute_value(product_id);
+CREATE INDEX idx_attr_val_json    ON attribute_value USING GIN(value_json);
+
+COMMENT ON TABLE attribute_value IS 'قيم السمات — EAV مع أعمدة مفصّلة حسب النوع';
+
+-- ============================================================
+-- 5. UNITS OF MEASURE & COMPOSITION
+-- ============================================================
+
+CREATE TABLE uom (
+  code    TEXT PRIMARY KEY,
+  name_ar TEXT,
+  name_en TEXT
+);
+
+COMMENT ON TABLE uom IS 'وحدات القياس';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE uom_conversion (
+  id        BIGSERIAL PRIMARY KEY,
+  from_code TEXT NOT NULL REFERENCES uom(code),
+  to_code   TEXT NOT NULL REFERENCES uom(code),
+  factor    NUMERIC(18,8) NOT NULL CHECK (factor > 0),
+  UNIQUE(from_code, to_code)
+);
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_unit (
+  id         BIGSERIAL PRIMARY KEY,
+  product_id BIGINT NOT NULL REFERENCES product(id),
+  uom_code   TEXT NOT NULL REFERENCES uom(code),
+  is_base    BOOLEAN DEFAULT false,
+  min_qty    NUMERIC(18,4),
+  max_qty    NUMERIC(18,4)
+);
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_composition (
+  id                BIGSERIAL PRIMARY KEY,
+  parent_product_id BIGINT NOT NULL REFERENCES product(id),
+  child_product_id  BIGINT NOT NULL REFERENCES product(id),
+  qty               NUMERIC(18,4) NOT NULL CHECK (qty > 0),
+  policy            TEXT NOT NULL CHECK (policy IN ('EXPLODE','NO_EXPLODE')),
+  price_ratio       NUMERIC(5,4) DEFAULT 0,
+  CHECK (parent_product_id != child_product_id)
+);
+
+COMMENT ON TABLE product_composition IS 'التركيب BOM/Bundle/KIT';
+
+-- ============================================================
+-- 6. NUMBERING & IDENTIFIERS
+-- ============================================================
+
+CREATE TABLE numbering_scheme (
+  id         BIGSERIAL PRIMARY KEY,
+  tenant_id  BIGINT NOT NULL REFERENCES tenant(id),
+  code       TEXT NOT NULL,
+  pattern    TEXT NOT NULL,
+  context    JSONB DEFAULT '{}',
+  gap_policy TEXT DEFAULT 'ALLOW' CHECK (gap_policy IN ('ALLOW','DENY','REUSE')),
+  UNIQUE(tenant_id, code)
+);
+
+COMMENT ON TABLE numbering_scheme IS 'مخطط الترقيم — مقاطع ثابتة/تاريخ/فرع/سلسلة';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE numbering_sequence (
+  id             BIGSERIAL PRIMARY KEY,
+  scheme_id      BIGINT NOT NULL REFERENCES numbering_scheme(id),
+  branch_code    TEXT,
+  channel_code   TEXT,
+  current_value  BIGINT NOT NULL DEFAULT 0,
+  reserved_until TIMESTAMPTZ,
+  UNIQUE(scheme_id, branch_code, channel_code)
+);
+
+COMMENT ON TABLE numbering_sequence IS 'مخزن تسلسل مستقل لكل فرع/قناة — Atomic Increment';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_identifier (
+  id         BIGSERIAL PRIMARY KEY,
+  product_id BIGINT NOT NULL REFERENCES product(id),
+  id_type    TEXT NOT NULL CHECK (id_type IN ('PRODUCT','INVENTORY','LOCATION','EXTERNAL','CONTRACT')),
+  identifier TEXT NOT NULL,
+  scheme_id  BIGINT REFERENCES numbering_scheme(id),
+  UNIQUE(product_id, id_type, identifier)
+);
+
+-- ============================================================
+-- 7. PRICING
+-- ============================================================
+
+CREATE TABLE price_list (
+  id         BIGSERIAL PRIMARY KEY,
+  tenant_id  BIGINT NOT NULL REFERENCES tenant(id),
+  name       TEXT NOT NULL,
+  currency   TEXT NOT NULL DEFAULT 'YER',
+  valid_from DATE NOT NULL,
+  valid_to   DATE,
+  CHECK (valid_to IS NULL OR valid_to > valid_from)
+);
+
+COMMENT ON TABLE price_list IS 'قائمة أسعار متعددة العملات والفترات';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE price_list_product (
+  id            BIGSERIAL PRIMARY KEY,
+  price_list_id BIGINT NOT NULL REFERENCES price_list(id),
+  product_id    BIGINT NOT NULL REFERENCES product(id),
+  base_price    NUMERIC(18,2) NOT NULL CHECK (base_price >= 0),
+  min_price     NUMERIC(18,2),
+  max_price     NUMERIC(18,2),
+  UNIQUE(price_list_id, product_id)
+);
+
+-- -----------------------------------------------------------
+
+CREATE TABLE price_rule (
+  id            BIGSERIAL PRIMARY KEY,
+  price_list_id BIGINT NOT NULL REFERENCES price_list(id),
+  condition_cel TEXT NOT NULL,
+  formula_cel   TEXT NOT NULL,
+  priority      INT DEFAULT 0
+);
+
+COMMENT ON TABLE price_rule IS 'قاعدة تسعير بمحرك CEL — شروط ومعادلات';
+
+-- ============================================================
+-- 8. CHANNELS
+-- ============================================================
+
+CREATE TABLE channel (
+  id      BIGSERIAL PRIMARY KEY,
+  code    TEXT NOT NULL UNIQUE,
+  name_ar TEXT,
+  name_en TEXT
+);
+
+COMMENT ON TABLE channel IS 'القنوات: Web/Mobile/POS/API/USSD/IVR';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_channel (
+  id            BIGSERIAL PRIMARY KEY,
+  product_id    BIGINT NOT NULL REFERENCES product(id),
+  channel_id    BIGINT NOT NULL REFERENCES channel(id),
+  enabled       BOOLEAN DEFAULT true,
+  limits        JSONB DEFAULT '{}',
+  display       JSONB DEFAULT '{}',
+  feature_flags JSONB DEFAULT '{}',
+  UNIQUE(product_id, channel_id)
+);
+
+-- ============================================================
+-- 9. CHARGES, FEES & PENALTIES
+-- ============================================================
+
+CREATE TABLE charge (
+  id         BIGSERIAL PRIMARY KEY,
+  tenant_id  BIGINT NOT NULL REFERENCES tenant(id),
+  code       TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  kind       TEXT NOT NULL CHECK (kind IN ('FEE','FINE','SUBSCRIPTION','COMMISSION')),
+  basis      TEXT NOT NULL,
+  value      NUMERIC(18,4) NOT NULL,
+  per        TEXT,
+  when_event TEXT,
+  params     JSONB DEFAULT '{}',
+  UNIQUE(tenant_id, code)
+);
+
+COMMENT ON TABLE charge IS 'رسم/غرامة/اشتراك/عمولة';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_charge_link (
+  id              BIGSERIAL PRIMARY KEY,
+  product_id      BIGINT NOT NULL REFERENCES product(id),
+  charge_id       BIGINT NOT NULL REFERENCES charge(id),
+  override_params JSONB DEFAULT '{}',
+  UNIQUE(product_id, charge_id)
+);
+
+-- ============================================================
+-- 10. ACCOUNTING
+-- ============================================================
+
+CREATE TABLE accounting_template (
+  id        BIGSERIAL PRIMARY KEY,
+  tenant_id BIGINT NOT NULL REFERENCES tenant(id),
+  name      TEXT NOT NULL,
+  event     TEXT NOT NULL,
+  entries   JSONB NOT NULL DEFAULT '[]'
+);
+
+COMMENT ON TABLE accounting_template IS 'قالب قيود محاسبية حسب الحدث';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_accounting_map (
+  id          BIGSERIAL PRIMARY KEY,
+  product_id  BIGINT NOT NULL REFERENCES product(id),
+  template_id BIGINT NOT NULL REFERENCES accounting_template(id),
+  event_type  TEXT NOT NULL,
+  UNIQUE(product_id, event_type)
+);
+
+-- ============================================================
+-- 11. ELIGIBILITY, DOCUMENTS & COLLATERAL
+-- ============================================================
+
+CREATE TABLE eligibility_rule (
+  id            BIGSERIAL PRIMARY KEY,
+  tenant_id     BIGINT NOT NULL REFERENCES tenant(id),
+  name          TEXT NOT NULL,
+  condition_cel TEXT NOT NULL,
+  params        JSONB DEFAULT '{}'
+);
+
+COMMENT ON TABLE eligibility_rule IS 'قاعدة أهلية بمحرك CEL';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE document_requirement (
+  id        BIGSERIAL PRIMARY KEY,
+  tenant_id BIGINT NOT NULL REFERENCES tenant(id),
+  code      TEXT NOT NULL,
+  name      TEXT NOT NULL,
+  params    JSONB DEFAULT '{}',
+  UNIQUE(tenant_id, code)
+);
+
+-- -----------------------------------------------------------
+
+CREATE TABLE collateral_requirement (
+  id             BIGSERIAL PRIMARY KEY,
+  tenant_id      BIGINT NOT NULL REFERENCES tenant(id),
+  type           TEXT NOT NULL,
+  coverage_ratio NUMERIC(5,4) NOT NULL CHECK (coverage_ratio > 0),
+  params         JSONB DEFAULT '{}'
+);
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_eligibility_link (
+  id         BIGSERIAL PRIMARY KEY,
+  product_id BIGINT NOT NULL REFERENCES product(id),
+  rule_id    BIGINT NOT NULL REFERENCES eligibility_rule(id),
+  UNIQUE(product_id, rule_id)
+);
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_document_link (
+  id           BIGSERIAL PRIMARY KEY,
+  product_id   BIGINT NOT NULL REFERENCES product(id),
+  doc_id       BIGINT NOT NULL REFERENCES document_requirement(id),
+  is_mandatory BOOLEAN DEFAULT true,
+  UNIQUE(product_id, doc_id)
+);
+
+-- -----------------------------------------------------------
+
+CREATE TABLE product_collateral_link (
+  id            BIGSERIAL PRIMARY KEY,
+  product_id    BIGINT NOT NULL REFERENCES product(id),
+  collateral_id BIGINT NOT NULL REFERENCES collateral_requirement(id),
+  UNIQUE(product_id, collateral_id)
+);
+
+-- ============================================================
+-- 12. SCHEDULE TEMPLATES
+-- ============================================================
+
+CREATE TABLE schedule_template (
+  id        BIGSERIAL PRIMARY KEY,
+  tenant_id BIGINT NOT NULL REFERENCES tenant(id),
+  name      TEXT NOT NULL,
+  payload   JSONB NOT NULL DEFAULT '{}'
+);
+
+COMMENT ON TABLE schedule_template IS 'قالب جدول أقساط/مطالبات';
+
+-- ============================================================
+-- 13. CONTRACTS (Financial)
+-- ============================================================
+
+CREATE TABLE contract (
+  id              BIGSERIAL PRIMARY KEY,
+  tenant_id       BIGINT NOT NULL REFERENCES tenant(id),
+  product_id      BIGINT NOT NULL REFERENCES product(id),
+  customer_id     BIGINT NOT NULL REFERENCES customer(id),
+  contract_number TEXT UNIQUE,
+  status          TEXT NOT NULL DEFAULT 'DRAFT'
+                    CHECK (status IN ('DRAFT','ACTIVE','IN_ARREARS','RESTRUCTURED','WRITTEN_OFF','CLOSED')),
+  opened_at       TIMESTAMPTZ,
+  closed_at       TIMESTAMPTZ,
+  currency        TEXT NOT NULL DEFAULT 'YER',
+  principal       NUMERIC(18,2) NOT NULL CHECK (principal > 0),
+  interest_type   TEXT CHECK (interest_type IN ('FLAT','REDUCING','FIXED_AMOUNT')),
+  day_count       TEXT DEFAULT '30E/360'
+                    CHECK (day_count IN ('30E/360','ACT/365','ACT/360')),
+  meta            JSONB DEFAULT '{}',
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_contract_tenant_status ON contract(tenant_id, status);
+CREATE INDEX idx_contract_customer      ON contract(customer_id);
+
+COMMENT ON TABLE contract IS 'العقد المالي — قرض/ائتمان/سقف';
+
+-- ============================================================
+-- 14. INSTALLMENTS
+-- ============================================================
+
+CREATE TABLE installment (
+  id             BIGSERIAL PRIMARY KEY,
+  contract_id    BIGINT NOT NULL REFERENCES contract(id),
+  seq            INT NOT NULL,
+  due_on         DATE NOT NULL,
+  principal_due  NUMERIC(18,2) DEFAULT 0,
+  interest_due   NUMERIC(18,2) DEFAULT 0,
+  fee_due        NUMERIC(18,2) DEFAULT 0,
+  paid_principal NUMERIC(18,2) DEFAULT 0,
+  paid_interest  NUMERIC(18,2) DEFAULT 0,
+  paid_fee       NUMERIC(18,2) DEFAULT 0,
+  status         TEXT NOT NULL DEFAULT 'DUE'
+                   CHECK (status IN ('DUE','PAID','PARTIAL','LATE','WAIVED')),
+  UNIQUE(contract_id, seq)
+);
+
+CREATE INDEX idx_installment_due ON installment(due_on, status);
+
+COMMENT ON TABLE installment IS 'أقساط العقد المالي';
+
+-- ============================================================
+-- 15. PAYMENT EVENTS
+-- ============================================================
+
+CREATE TABLE payment_event (
+  id               BIGSERIAL PRIMARY KEY,
+  contract_id      BIGINT NOT NULL REFERENCES contract(id),
+  installment_id   BIGINT REFERENCES installment(id),
+  paid_on          TIMESTAMPTZ NOT NULL,
+  amount_principal NUMERIC(18,2) DEFAULT 0,
+  amount_interest  NUMERIC(18,2) DEFAULT 0,
+  amount_fee       NUMERIC(18,2) DEFAULT 0,
+  channel          TEXT,
+  idempotency_key  TEXT UNIQUE NOT NULL
+);
+
+COMMENT ON TABLE payment_event IS 'أحداث الدفع مع Idempotency Key';
+
+-- ============================================================
+-- 16. PENALTY EVENTS
+-- ============================================================
+
+CREATE TABLE penalty_event (
+  id             BIGSERIAL PRIMARY KEY,
+  contract_id    BIGINT NOT NULL REFERENCES contract(id),
+  installment_id BIGINT REFERENCES installment(id),
+  kind           TEXT NOT NULL,
+  amount         NUMERIC(18,2) NOT NULL,
+  aging_bucket   TEXT CHECK (aging_bucket IN ('30','60','90','180','180+')),
+  created_at     TIMESTAMPTZ DEFAULT now()
+);
+
+COMMENT ON TABLE penalty_event IS 'أحداث الغرامات مع Aging Buckets';
+
+-- ============================================================
+-- 17. SUB-LEDGER ENTRIES
+-- ============================================================
+
+CREATE TABLE subledger_entry (
+  id              BIGSERIAL PRIMARY KEY,
+  contract_id     BIGINT NOT NULL REFERENCES contract(id),
+  event_type      TEXT NOT NULL,
+  dr_account      TEXT NOT NULL,
+  cr_account      TEXT NOT NULL,
+  amount          NUMERIC(18,2) NOT NULL CHECK (amount > 0),
+  posted_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ref             TEXT,
+  idempotency_key TEXT UNIQUE NOT NULL
+);
+
+CREATE INDEX idx_subledger_contract ON subledger_entry(contract_id, posted_at);
+
+COMMENT ON TABLE subledger_entry IS 'قيود الدفتر الفرعي — IFRS 9';
+
+-- ============================================================
+-- 18. RESERVATIONS
+-- ============================================================
+
+CREATE TABLE cancellation_policy (
+  id        BIGSERIAL PRIMARY KEY,
+  tenant_id BIGINT NOT NULL REFERENCES tenant(id),
+  name      TEXT NOT NULL,
+  rules     JSONB NOT NULL DEFAULT '[]'
+);
+
+COMMENT ON TABLE cancellation_policy IS 'سياسات الإلغاء والغرامات';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE reservation (
+  id                     BIGSERIAL PRIMARY KEY,
+  tenant_id              BIGINT NOT NULL REFERENCES tenant(id),
+  product_id             BIGINT NOT NULL REFERENCES product(id),
+  customer_id            BIGINT NOT NULL REFERENCES customer(id),
+  slot_from              TIMESTAMPTZ NOT NULL,
+  slot_to                TIMESTAMPTZ NOT NULL,
+  status                 TEXT NOT NULL DEFAULT 'HOLD'
+                           CHECK (status IN ('HOLD','CONFIRMED','CANCELLED','EXPIRED','COMPLETED')),
+  hold_until             TIMESTAMPTZ,
+  deposit_amount         NUMERIC(18,2) DEFAULT 0,
+  cancellation_policy_id BIGINT REFERENCES cancellation_policy(id),
+  created_at             TIMESTAMPTZ DEFAULT now(),
+  CHECK (slot_to > slot_from)
+);
+
+CREATE INDEX idx_reservation_product_slot ON reservation(product_id, slot_from, slot_to);
+CREATE INDEX idx_reservation_status       ON reservation(status);
+
+COMMENT ON TABLE reservation IS 'الحجوزات — HOLD/CONFIRMED/CANCELLED/EXPIRED';
+
+-- ============================================================
+-- 19. AUDIT & EVENT SOURCING
+-- ============================================================
+
+CREATE TABLE audit_log (
+  id          BIGSERIAL PRIMARY KEY,
+  tenant_id   BIGINT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id   BIGINT NOT NULL,
+  action      TEXT NOT NULL CHECK (action IN ('CREATE','UPDATE','DELETE','STATE_CHANGE')),
+  old_data    JSONB,
+  new_data    JSONB,
+  user_id     TEXT,
+  ip          INET,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_audit_entity      ON audit_log(entity_type, entity_id);
+CREATE INDEX idx_audit_tenant_time ON audit_log(tenant_id, created_at DESC);
+
+COMMENT ON TABLE audit_log IS 'سجل تدقيق غير قابل للتعديل (immutable)';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE state_transition (
+  id           BIGSERIAL PRIMARY KEY,
+  tenant_id    BIGINT NOT NULL,
+  entity_type  TEXT NOT NULL,
+  entity_id    BIGINT NOT NULL,
+  from_state   TEXT NOT NULL,
+  to_state     TEXT NOT NULL,
+  triggered_by TEXT,
+  created_at   TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_state_entity ON state_transition(entity_type, entity_id);
+
+COMMENT ON TABLE state_transition IS 'سجل انتقالات الحالة';
+
+-- -----------------------------------------------------------
+
+CREATE TABLE domain_event (
+  id             BIGSERIAL PRIMARY KEY,
+  tenant_id      BIGINT NOT NULL,
+  aggregate_type TEXT NOT NULL,
+  aggregate_id   BIGINT NOT NULL,
+  event_type     TEXT NOT NULL,
+  payload        JSONB NOT NULL,
+  created_at     TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_event_aggregate ON domain_event(aggregate_type, aggregate_id, created_at);
+
+COMMENT ON TABLE domain_event IS 'أحداث النطاق — Event Sourcing للعقود المالية';
+
+-- ============================================================
+-- 20. ROW LEVEL SECURITY (Multi-tenancy)
+-- ============================================================
+
+-- Enable RLS on all tenant-scoped tables
+-- Example pattern (apply to each table with tenant_id):
+
+-- ALTER TABLE product ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY tenant_isolation ON product
+--   USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+
+-- Repeat for: customer, product_category, attribute_definition,
+--   attribute_set, price_list, channel, charge, accounting_template,
+--   eligibility_rule, document_requirement, collateral_requirement,
+--   schedule_template, contract, reservation, cancellation_policy,
+--   numbering_scheme, audit_log, state_transition, domain_event

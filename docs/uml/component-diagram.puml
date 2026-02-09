@@ -1,0 +1,32 @@
+@startuml
+title Dynamic Product System — Component Diagram
+
+package "Product Platform" {
+  [API Gateway] as GW
+  [Product Kernel] as PK
+  [Attributes Engine] as AE
+  [Pricing Service] as PS
+  [Numbering Service] as NS
+  [Accounting Mapper] as AM
+  [Contracts Service] as CS
+  [Reservations Service] as RS
+  [Catalog Admin UI] as UI
+  [Event Bus] as EB
+  database "PostgreSQL" as DB
+  database "Redis Cache" as RC
+}
+
+UI --> GW
+GW --> PK
+PK --> AE
+PK --> PS
+PK --> NS
+PK --> AM
+PK --> CS
+PK --> RS
+PK --> EB : Domain Events
+CS --> EB : Contract Events
+EB --> AM : Async Accounting
+PK --> DB
+PK --> RC : Cache
+@enduml

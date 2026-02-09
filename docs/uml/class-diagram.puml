@@ -1,0 +1,211 @@
+@startuml
+title Dynamic Product System — Class Diagram (Core)
+
+class Tenant {
+  id: bigint
+  code: text
+  name: text
+  settings: jsonb
+}
+
+class Customer {
+  id: bigint
+  tenant_id: bigint
+  code: text
+  name_ar: text
+  name_en: text
+  kyc_level: text
+  score: numeric
+}
+
+class ProductCategory {
+  id: bigint
+  tenant_id: bigint
+  parent_id: bigint
+  name_ar: text
+  name_en: text
+  type: text
+  default_policies: jsonb
+}
+
+class Product {
+  id: bigint
+  tenant_id: bigint
+  category_id: bigint
+  type: text
+  name_ar: text
+  name_en: text
+  status: text
+  divisible: boolean
+}
+
+class ProductVersion {
+  id: bigint
+  product_id: bigint
+  version_no: int
+  effective_from: date
+  effective_to: date
+  data: jsonb
+  approved_by: text
+}
+
+class AttributeDefinition {
+  id: bigint
+  code: text
+  datatype: text
+  validation: jsonb
+  json_schema: jsonb
+}
+
+class AttributeValue {
+  id: bigint
+  product_id: bigint
+  attribute_id: bigint
+  value_text: text
+  value_number: numeric
+  value_date: date
+  value_bool: boolean
+  value_json: jsonb
+}
+
+class NumberingScheme {
+  id: bigint
+  code: text
+  pattern: text
+  gap_policy: text
+}
+
+class NumberingSequence {
+  id: bigint
+  scheme_id: bigint
+  branch_code: text
+  current_value: bigint
+}
+
+class ProductIdentifier {
+  id: bigint
+  product_id: bigint
+  id_type: text
+  identifier: text
+}
+
+class PriceList {
+  id: bigint
+  name: text
+  currency: text
+  valid_from: date
+  valid_to: date
+}
+
+class PriceRule {
+  id: bigint
+  price_list_id: bigint
+  condition_cel: text
+  formula_cel: text
+  priority: int
+}
+
+class Channel {
+  id: bigint
+  code: text
+  name_ar: text
+  name_en: text
+}
+
+class ProductChannel {
+  id: bigint
+  product_id: bigint
+  channel_id: bigint
+  enabled: boolean
+  feature_flags: jsonb
+}
+
+class Charge {
+  id: bigint
+  code: text
+  kind: text
+  basis: text
+  value: numeric
+  when_event: text
+}
+
+class Contract {
+  id: bigint
+  product_id: bigint
+  customer_id: bigint
+  contract_number: text
+  status: text
+  principal: numeric
+  interest_type: text
+  day_count: text
+}
+
+class Installment {
+  id: bigint
+  contract_id: bigint
+  seq: int
+  due_on: date
+  status: text
+}
+
+class PaymentEvent {
+  id: bigint
+  contract_id: bigint
+  installment_id: bigint
+  idempotency_key: text
+}
+
+class SubledgerEntry {
+  id: bigint
+  contract_id: bigint
+  event_type: text
+  dr_account: text
+  cr_account: text
+  amount: numeric
+}
+
+class Reservation {
+  id: bigint
+  product_id: bigint
+  customer_id: bigint
+  slot_from: timestamptz
+  slot_to: timestamptz
+  status: text
+}
+
+class AuditLog {
+  id: bigint
+  entity_type: text
+  entity_id: bigint
+  action: text
+  old_data: jsonb
+  new_data: jsonb
+}
+
+class DomainEvent {
+  id: bigint
+  aggregate_type: text
+  aggregate_id: bigint
+  event_type: text
+  payload: jsonb
+}
+
+Tenant "1" -- "*" Product
+Tenant "1" -- "*" Customer
+ProductCategory "1" -- "*" Product
+ProductCategory -- ProductCategory : parent
+Product "1" -- "*" ProductVersion
+Product "1" -- "*" AttributeValue
+AttributeDefinition "1" -- "*" AttributeValue
+Product "1" -- "*" ProductIdentifier
+Product "1" -- "*" ProductChannel
+Channel "1" -- "*" ProductChannel
+Product "1" -- "*" Contract
+Customer "1" -- "*" Contract
+Contract "1" -- "*" Installment
+Contract "1" -- "*" SubledgerEntry
+Installment "1" -- "*" PaymentEvent
+Product "1" -- "*" Reservation
+NumberingScheme "1" -- "*" NumberingSequence
+PriceList "1" -- "*" PriceRule
+@enduml

@@ -1,0 +1,33 @@
+@startuml
+title Dynamic Product System — Deployment Diagram
+
+node "Load Balancer" as LB
+
+node "K8s Cluster" {
+  node "Pod: API Gateway" as GW
+  node "Pod: Product Service" as PS
+  node "Pod: Pricing Service" as PR
+  node "Pod: Contracts Service" as CS
+  node "Pod: Numbering Service" as NS
+}
+
+database "PostgreSQL Primary" as DB1
+database "PostgreSQL Replica" as DB2
+database "Redis Cluster" as Redis
+queue "Kafka / RabbitMQ" as MQ
+
+LB --> GW
+GW --> PS
+GW --> PR
+GW --> CS
+GW --> NS
+
+PS --> DB1 : Write
+PS --> DB2 : Read (CQRS)
+PS --> Redis : Cache
+
+CS --> MQ : Events
+MQ --> PS : Consume
+
+DB1 --> DB2 : Replication
+@enduml

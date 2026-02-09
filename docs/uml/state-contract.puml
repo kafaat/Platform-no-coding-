@@ -1,0 +1,22 @@
+@startuml
+title Financial Contract — State Machine
+
+[*] --> DRAFT
+
+DRAFT --> ACTIVE : Approve & Disburse
+
+ACTIVE --> IN_ARREARS : Missed Payment (>grace)
+IN_ARREARS --> ACTIVE : Catch-up Payment
+
+ACTIVE --> RESTRUCTURED : Reschedule Agreement
+IN_ARREARS --> RESTRUCTURED : Restructure Agreement
+
+RESTRUCTURED --> ACTIVE : Resume Payments
+RESTRUCTURED --> CLOSED : Paid Off
+
+ACTIVE --> CLOSED : Paid Off
+ACTIVE --> CLOSED : Early Settlement
+
+IN_ARREARS --> WRITTEN_OFF : Write-off Decision
+WRITTEN_OFF --> CLOSED : Recovery or Final
+@enduml
