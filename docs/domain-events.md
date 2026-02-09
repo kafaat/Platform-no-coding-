@@ -840,7 +840,7 @@ Emitted when a payment is recorded against a contract. Every payment must carry 
     "amount_fee": 0.00,
     "currency": "YER",
     "channel": "BRANCH",
-    "idempotency_key": "PAY-2026-BRANCH-001-XYZ",
+    "idempotency_key": "pay-001-example",
     "paid_on": "2026-03-01T09:30:00.000Z"
   }
 }
@@ -1207,7 +1207,7 @@ Emitted when a customer pays off the remaining balance before the scheduled end 
     "remaining_installments": 6,
     "installments_waived": [7, 8, 9, 10, 11, 12],
     "channel": "BRANCH",
-    "idempotency_key": "SETTLE-2026-001-ABC"
+    "idempotency_key": "settle-001-example"
   }
 }
 ```
@@ -1736,7 +1736,7 @@ Emitted when a journal entry is posted to a contract's sub-ledger (FR-082). Foll
     "currency": "YER",
     "posted_at": "2026-03-01T09:30:02.000Z",
     "ref": "PAY-2026-BRANCH-001-XYZ",
-    "idempotency_key": "SL-PAY-9001-PRINCIPAL",
+    "idempotency_key": "sl-pay-001-example",
     "accounting_template_id": 3,
     "description": "Principal repayment - Installment 1"
   }
