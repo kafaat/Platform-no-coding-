@@ -1,0 +1,6 @@
+[allowlist]
+  description = "Allowlist for false positives in documentation examples"
+  # Commit containing example idempotency_key values in domain events documentation
+  commits = ["d7dac4730252a0b729f80f3d7c7a5115b3aee861"]
+  # Documentation files contain example API payloads with mock keys
+  paths = ['''docs/domain-events\.md''']

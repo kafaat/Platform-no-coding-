@@ -1,0 +1,43 @@
+@startuml
+title Product Activation Lifecycle — Activity Diagram
+
+start
+
+:Create Product (DRAFT);
+:Fill Basic Data (name, type, category);
+:Add ProductVersion with Effective Dates;
+
+fork
+  :Configure Attributes (EAV);
+fork again
+  :Setup Pricing (PriceList + Rules);
+fork again
+  :Configure Channels;
+fork again
+  :Link Numbering Scheme;
+fork again
+  :Map Accounting Templates;
+end fork
+
+:Validate Completeness;
+
+if (All Required Data Present?) then (yes)
+  :Submit for Approval;
+
+  if (Maker-Checker: Different User Approves?) then (approved)
+    :Activate Product;
+    :Publish Version;
+    :Enable Channels;
+    :Product is ACTIVE;
+  else (rejected)
+    :Return to DRAFT with Comments;
+    :Revise and Resubmit;
+  endif
+
+else (no)
+  :Show Missing Requirements;
+  :Return to Editor;
+endif
+
+stop
+@enduml

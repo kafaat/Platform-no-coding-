@@ -1,0 +1,289 @@
+# ============================================================
+# Dynamic Product System - Prometheus Alerting Rules
+#
+# Alert Groups:
+#   1. dps-api-alerts       - API health and performance
+#   2. dps-business-alerts  - Business logic and domain metrics
+#   3. dps-infra-alerts     - Infrastructure components
+#
+# Severity Levels:
+#   - critical: Immediate action required (pages on-call)
+#   - warning:  Needs attention within 1 hour
+#   - info:     Informational, review during business hours
+#
+# Runbook Base URL: https://wiki.dps.local/runbooks/
+# ============================================================
+
+groups:
+  # --------------------------------------------------------
+  # API Health & Performance Alerts
+  # --------------------------------------------------------
+  - name: dps-api-alerts
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(dps_api_requests_total{status_code=~"5.."}[5m]))
+            /
+            sum(rate(dps_api_requests_total[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          service: dps-api
+          team: platform
+        annotations:
+          summary: "High 5xx error rate detected ({{ $value | humanizePercentage }})"
+          description: >-
+            The 5xx error rate has exceeded 1% for the last 5 minutes.
+            Current rate: {{ $value | humanizePercentage }}.
+            This indicates server-side failures that are impacting users.
+            Investigate application logs and downstream service health immediately.
+          runbook_url: "https://wiki.dps.local/runbooks/api/high-error-rate"
+          dashboard_url: "https://grafana.dps.local/d/dps-overview?viewPanel=3"
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(dps_api_request_duration_seconds_bucket[5m])) by (le, endpoint)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: dps-api
+          team: platform
+        annotations:
+          summary: "P95 latency exceeds 500ms on endpoint {{ $labels.endpoint }}"
+          description: >-
+            The 95th percentile response latency for endpoint {{ $labels.endpoint }}
+            has exceeded 500ms for the last 5 minutes.
+            Current P95: {{ $value | humanizeDuration }}.
+            NFR target is 200ms for pricing/attributes and 400ms for numbering.
+            Check database query performance, connection pool, and cache hit rates.
+          runbook_url: "https://wiki.dps.local/runbooks/api/high-latency"
+          dashboard_url: "https://grafana.dps.local/d/dps-overview?viewPanel=4"
+
+      - alert: TooManyRequests
+        expr: |
+          sum(rate(dps_api_requests_total{status_code="429"}[1m])) > 0.1667
+        for: 5m
+        labels:
+          severity: warning
+          service: dps-api
+          team: platform
+        annotations:
+          summary: "Rate limiting triggered: more than 10 HTTP 429 responses per minute"
+          description: >-
+            The API is returning HTTP 429 (Too Many Requests) at a rate exceeding
+            10 per minute for the last 5 minutes.
+            Current rate: {{ $value | humanize }} req/s.
+            This may indicate a misbehaving client, a DDoS attempt,
+            or rate limit thresholds that need tuning.
+            Review rate limiter configuration and client request patterns.
+          runbook_url: "https://wiki.dps.local/runbooks/api/rate-limiting"
+
+  # --------------------------------------------------------
+  # Business Logic & Domain Alerts
+  # --------------------------------------------------------
+  - name: dps-business-alerts
+    interval: 60s
+    rules:
+      - alert: HighOverdueRate
+        expr: |
+          (
+            sum(dps_contracts_by_status{status="IN_ARREARS"})
+            /
+            sum(dps_contracts_by_status{status="ACTIVE"})
+          ) > 0.20
+        for: 15m
+        labels:
+          severity: warning
+          service: dps-contracts
+          team: risk
+        annotations:
+          summary: "Overdue contracts exceed 20% of active portfolio"
+          description: >-
+            The ratio of IN_ARREARS contracts to ACTIVE contracts has exceeded 20%
+            for the last 15 minutes. Current rate: {{ $value | humanizePercentage }}.
+            This may indicate systemic collection issues or deteriorating portfolio quality.
+            Escalate to the risk management team for review.
+            BR-08 aging escalation: 30d alert, 60d escalate, 90d suspend, 180d+ write-off.
+          runbook_url: "https://wiki.dps.local/runbooks/business/high-overdue-rate"
+          dashboard_url: "https://grafana.dps.local/d/dps-overview?viewPanel=21"
+
+      - alert: PaymentProcessingFailure
+        expr: |
+          sum(increase(dps_payment_failures_total[10m])) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: dps-contracts
+          team: platform
+        annotations:
+          summary: "Payment processing failures: {{ $value }} failures in last 10 minutes"
+          description: >-
+            More than 5 payment processing failures have occurred in the last 10 minutes.
+            Current failure count: {{ $value }}.
+            This could indicate issues with the payment gateway, database connectivity,
+            or contract state validation. Each payment must carry a unique idempotency key (BR-11).
+            Check payment_event table and application logs for error details.
+          runbook_url: "https://wiki.dps.local/runbooks/business/payment-failure"
+
+      - alert: ReservationExpirySpike
+        expr: |
+          sum(increase(dps_reservations_expired_total[1h])) > 50
+        for: 5m
+        labels:
+          severity: warning
+          service: dps-reservations
+          team: product
+        annotations:
+          summary: "Reservation expiry spike: {{ $value }} expired in the last hour"
+          description: >-
+            More than 50 reservations have expired (HOLD -> EXPIRED) in the last hour.
+            Current count: {{ $value }}.
+            This may indicate TTL values that are too short, user experience issues
+            preventing timely confirmation, or system delays in the confirmation flow.
+            Review TTL configuration and hold-to-confirm conversion rates (BR-10).
+          runbook_url: "https://wiki.dps.local/runbooks/business/reservation-expiry-spike"
+          dashboard_url: "https://grafana.dps.local/d/dps-overview?viewPanel=32"
+
+      - alert: NumberingSequenceNearLimit
+        expr: |
+          (
+            dps_numbering_sequence_current
+            /
+            dps_numbering_sequence_max
+          ) > 0.90
+        for: 10m
+        labels:
+          severity: critical
+          service: dps-numbering
+          team: platform
+        annotations:
+          summary: "Numbering sequence {{ $labels.scheme_name }} at {{ $value | humanizePercentage }} capacity"
+          description: >-
+            The numbering sequence for scheme "{{ $labels.scheme_name }}" has consumed
+            more than 90% of its maximum value.
+            Current utilization: {{ $value | humanizePercentage }}.
+            If the sequence is exhausted, new product identifiers and contract numbers
+            cannot be generated (BR-04). Extend the sequence range or create a new
+            numbering scheme immediately.
+          runbook_url: "https://wiki.dps.local/runbooks/business/numbering-sequence-limit"
+
+  # --------------------------------------------------------
+  # Infrastructure Alerts
+  # --------------------------------------------------------
+  - name: dps-infra-alerts
+    interval: 30s
+    rules:
+      - alert: PostgresConnectionPool
+        expr: |
+          (
+            pg_stat_activity_count{datname="dps_dev", state="active"}
+            /
+            pg_settings_max_connections
+          ) > 0.80
+        for: 5m
+        labels:
+          severity: critical
+          service: postgres
+          team: platform
+        annotations:
+          summary: "PostgreSQL connection pool at {{ $value | humanizePercentage }} capacity"
+          description: >-
+            Active PostgreSQL connections have exceeded 80% of the configured maximum
+            (max_connections=200). Current utilization: {{ $value | humanizePercentage }}.
+            If the pool is exhausted, new connections will be refused and API requests will fail.
+            Check for connection leaks, long-running queries, and idle transactions.
+            Consider scaling the connection pool or adding PgBouncer.
+          runbook_url: "https://wiki.dps.local/runbooks/infra/postgres-connection-pool"
+          dashboard_url: "https://grafana.dps.local/d/dps-overview?viewPanel=5"
+
+      - alert: PostgresCacheHitRatio
+        expr: |
+          (
+            pg_stat_database_blks_hit{datname="dps_dev"}
+            /
+            (pg_stat_database_blks_hit{datname="dps_dev"} + pg_stat_database_blks_read{datname="dps_dev"})
+          ) < 0.95
+        for: 10m
+        labels:
+          severity: warning
+          service: postgres
+          team: platform
+        annotations:
+          summary: "PostgreSQL cache hit ratio below 95% (currently {{ $value | humanizePercentage }})"
+          description: >-
+            The PostgreSQL buffer cache hit ratio has dropped below 95% for the last 10 minutes.
+            Current ratio: {{ $value | humanizePercentage }}.
+            This indicates that too many queries are hitting disk instead of the shared buffer cache.
+            Consider increasing shared_buffers (currently 256MB) or optimizing queries
+            that cause sequential scans on large tables.
+          runbook_url: "https://wiki.dps.local/runbooks/infra/postgres-cache-hit"
+          dashboard_url: "https://grafana.dps.local/d/dps-overview?viewPanel=43"
+
+      - alert: RedisMemoryHigh
+        expr: |
+          (
+            redis_memory_used_bytes
+            /
+            redis_memory_max_bytes
+          ) > 0.80
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          team: platform
+        annotations:
+          summary: "Redis memory usage above 80% (currently {{ $value | humanizePercentage }})"
+          description: >-
+            Redis memory usage has exceeded 80% of the configured maximum (maxmemory=256mb).
+            Current utilization: {{ $value | humanizePercentage }}.
+            The eviction policy is allkeys-lru, so least-recently-used keys will be evicted
+            under memory pressure, which may degrade cache hit rates for pricing and sessions.
+            Review key expiration policies and consider increasing maxmemory.
+          runbook_url: "https://wiki.dps.local/runbooks/infra/redis-memory"
+          dashboard_url: "https://grafana.dps.local/d/dps-overview?viewPanel=53"
+
+      - alert: KafkaConsumerLag
+        expr: |
+          sum(kafka_consumergroup_lag) by (consumergroup, topic) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          service: kafka
+          team: platform
+        annotations:
+          summary: "Kafka consumer lag exceeds 1000 for {{ $labels.consumergroup }}/{{ $labels.topic }}"
+          description: >-
+            The Kafka consumer group "{{ $labels.consumergroup }}" on topic "{{ $labels.topic }}"
+            has a lag exceeding 1000 messages for the last 10 minutes.
+            Current lag: {{ $value }}.
+            This means domain events (payments, state transitions, accounting entries)
+            are not being processed in a timely manner. Check consumer health,
+            processing errors, and whether consumers need to be scaled out.
+          runbook_url: "https://wiki.dps.local/runbooks/infra/kafka-consumer-lag"
+          dashboard_url: "https://grafana.dps.local/d/dps-overview?viewPanel=54"
+
+      - alert: DiskSpaceHigh
+        expr: |
+          (
+            1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})
+          ) > 0.85
+        for: 10m
+        labels:
+          severity: critical
+          service: infrastructure
+          team: platform
+        annotations:
+          summary: "Disk usage above 85% on {{ $labels.instance }}"
+          description: >-
+            Disk usage on {{ $labels.instance }} (mountpoint {{ $labels.mountpoint }})
+            has exceeded 85%. Current usage: {{ $value | humanizePercentage }}.
+            PostgreSQL WAL files, Kafka log segments, and application logs are the
+            most common consumers of disk space.
+            Immediate action: check pg_wal size, Kafka log retention settings (168h),
+            and rotate/compress application logs.
+          runbook_url: "https://wiki.dps.local/runbooks/infra/disk-space"

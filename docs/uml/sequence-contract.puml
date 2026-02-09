@@ -1,0 +1,39 @@
+@startuml
+title Loan Contract Creation — Sequence Diagram (with Error Flows)
+
+actor Client
+participant "Loan Wizard" as W
+participant "Eligibility" as ED
+participant "Numbering" as NS
+participant "Contracts" as CS
+participant "Pricing" as PR
+participant "Accounting" as AC
+
+Client -> W: Start Loan Application
+W -> ED: Check Score/DSR/KYC
+
+alt Eligibility Failed
+  ED --> W: REJECTED (reason)
+  W --> Client: Application Denied
+else Eligibility OK
+  ED --> W: APPROVED
+  W -> PR: Generate Schedule & Interest
+  PR --> W: Schedule
+
+  W -> NS: Reserve Contract Number
+  alt Number Reservation Failed
+    NS --> W: ERROR
+    W --> Client: Retry or Cancel
+  else Number Reserved
+    NS --> W: FIN-LOAN-2026-001234
+
+    W -> CS: Create Contract + Sub-ledger
+    CS --> W: ContractID
+
+    W -> AC: Post Disbursement Entries
+    AC --> W: Posted
+
+    W --> Client: Contract Activated + Schedule
+  end
+end
+@enduml

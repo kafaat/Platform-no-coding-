@@ -1,0 +1,37 @@
+@startuml
+title Dynamic Product System — Use Case Diagram
+
+actor "Product Manager" as ProductManager
+actor "Finance" as Finance
+actor "Sales" as Sales
+actor "Risk Officer" as RiskOfficer
+actor "Support" as Support
+actor "Customer" as Customer
+actor "Agent" as Agent
+
+rectangle "Product System" {
+  usecase "Manage Categories" as UC1
+  usecase "Create Product + Version" as UC2
+  usecase "Configure Pricing & Channels" as UC3
+  usecase "Setup Numbering Schemes" as UC4
+  usecase "Map Accounting Events" as UC5
+  usecase "Create Financial Contract" as UC6
+  usecase "Generate Installment Schedule" as UC7
+  usecase "Manage Reservations" as UC8
+  usecase "Approve Products (Maker-Checker)" as UC9
+  usecase "Audit & Compliance" as UC10
+}
+
+ProductManager --> UC1
+ProductManager --> UC2
+ProductManager --> UC3
+ProductManager --> UC4
+ProductManager --> UC9
+Finance --> UC5
+Finance --> UC7
+Sales --> UC6
+RiskOfficer --> UC6
+Customer --> UC8
+Agent --> UC8
+Support --> UC10
+@enduml
