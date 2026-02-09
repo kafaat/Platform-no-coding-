@@ -41,6 +41,7 @@ Platform-no-coding-/
         ├── class-diagram.puml         # Core class diagram
         ├── sequence-contract.puml     # Loan contract creation sequence
         ├── state-contract.puml        # Contract state machine
+        ├── activity-reservation.puml   # Reservation lifecycle activity
         ├── component-diagram.puml     # Service components
         └── deployment-diagram.puml    # Infrastructure deployment
 ```

@@ -667,18 +667,107 @@ CREATE INDEX idx_event_aggregate ON domain_event(aggregate_type, aggregate_id, c
 COMMENT ON TABLE domain_event IS 'أحداث النطاق — Event Sourcing للعقود المالية';
 
 -- ============================================================
--- 20. ROW LEVEL SECURITY (Multi-tenancy)
+-- 20. TRIGGERS (Business Rules)
+-- ============================================================
+
+-- BR-01: Prevent overlapping product versions
+CREATE OR REPLACE FUNCTION fn_check_version_overlap()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM product_version
+    WHERE product_id = NEW.product_id
+      AND id != COALESCE(NEW.id, 0)
+      AND effective_from < COALESCE(NEW.effective_to, '9999-12-31'::DATE)
+      AND COALESCE(effective_to, '9999-12-31'::DATE) > NEW.effective_from
+  ) THEN
+    RAISE EXCEPTION 'Version date range overlaps with an existing version for product_id=%', NEW.product_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_version_no_overlap
+  BEFORE INSERT OR UPDATE ON product_version
+  FOR EACH ROW EXECUTE FUNCTION fn_check_version_overlap();
+
+COMMENT ON FUNCTION fn_check_version_overlap IS 'BR-01: منع تداخل فترات إصدارات المنتج';
+
+-- Auto-update updated_at on product changes
+CREATE OR REPLACE FUNCTION fn_set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_product_updated_at
+  BEFORE UPDATE ON product
+  FOR EACH ROW EXECUTE FUNCTION fn_set_updated_at();
+
+-- ============================================================
+-- 21. ROW LEVEL SECURITY (Multi-tenancy)
 -- ============================================================
 
 -- Enable RLS on all tenant-scoped tables
--- Example pattern (apply to each table with tenant_id):
+ALTER TABLE customer ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_category ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attribute_definition ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attribute_set ENABLE ROW LEVEL SECURITY;
+ALTER TABLE price_list ENABLE ROW LEVEL SECURITY;
+ALTER TABLE charge ENABLE ROW LEVEL SECURITY;
+ALTER TABLE accounting_template ENABLE ROW LEVEL SECURITY;
+ALTER TABLE eligibility_rule ENABLE ROW LEVEL SECURITY;
+ALTER TABLE document_requirement ENABLE ROW LEVEL SECURITY;
+ALTER TABLE collateral_requirement ENABLE ROW LEVEL SECURITY;
+ALTER TABLE schedule_template ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contract ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reservation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cancellation_policy ENABLE ROW LEVEL SECURITY;
+ALTER TABLE numbering_scheme ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE state_transition ENABLE ROW LEVEL SECURITY;
+ALTER TABLE domain_event ENABLE ROW LEVEL SECURITY;
 
--- ALTER TABLE product ENABLE ROW LEVEL SECURITY;
--- CREATE POLICY tenant_isolation ON product
---   USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
-
--- Repeat for: customer, product_category, attribute_definition,
---   attribute_set, price_list, channel, charge, accounting_template,
---   eligibility_rule, document_requirement, collateral_requirement,
---   schedule_template, contract, reservation, cancellation_policy,
---   numbering_scheme, audit_log, state_transition, domain_event
+-- Create tenant isolation policies (FR-160, BR-12)
+-- Uses app.current_tenant session variable set by the application layer
+CREATE POLICY tenant_isolation ON customer
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON product_category
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON product
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON attribute_definition
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON attribute_set
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON price_list
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON charge
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON accounting_template
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON eligibility_rule
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON document_requirement
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON collateral_requirement
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON schedule_template
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON contract
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON reservation
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON cancellation_policy
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON numbering_scheme
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON audit_log
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON state_transition
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);
+CREATE POLICY tenant_isolation ON domain_event
+  USING (tenant_id = current_setting('app.current_tenant')::BIGINT);

@@ -1,0 +1,32 @@
+@startuml
+title Reservation Lifecycle — Activity Diagram
+
+start
+
+:Check Availability;
+if (Slot Free?) then (yes)
+  :Create HOLD with TTL;
+
+  if (Paid before TTL?) then (yes)
+    :Confirm Reservation;
+    :Deliver Service on Date;
+
+    if (Cancellation requested?) then (yes)
+      :Calculate Penalty per Policy;
+      :Cancel Reservation;
+      :Release Capacity;
+    else (no)
+      :Mark COMPLETED;
+    endif
+
+  else (no)
+    :Auto-expire HOLD (EXPIRED);
+    :Release Capacity;
+  endif
+
+else (no)
+  :Suggest Alternative Slots;
+endif
+
+stop
+@enduml
